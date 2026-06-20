@@ -5,6 +5,7 @@ mod cell_executor;
 mod cloud_warehouse;
 mod data_profiler;
 mod db;
+mod enterprise_auth;
 mod execution_pipeline;
 mod files;
 mod kernel;
