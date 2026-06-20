@@ -9,6 +9,9 @@ mod db;
 mod enterprise_auth;
 mod github_integration;
 mod output_renderer;
+mod k8s_deployment;
+mod dbt_integration;
+mod airflow_integration;
 mod execution_pipeline;
 mod file_manager;
 mod files;
@@ -141,6 +144,21 @@ async fn main() -> anyhow::Result<()> {
         // Typography and display settings
         .route("/settings/display", get(api::get_display_settings).put(api::update_display_settings))
         .route("/settings/fonts/mac", get(api::get_mac_compatible_fonts))
+        // Kubernetes and Docker (v1.0)
+        .route("/infra/k8s/manifest", get(api::get_k8s_manifest))
+        .route("/infra/k8s/deploy", post(api::deploy_to_k8s))
+        .route("/infra/k8s/pods", get(api::get_k8s_pods))
+        .route("/infra/docker/compose", get(api::get_docker_compose))
+        // dbt integration (v1.0)
+        .route("/notebooks/:id/dbt/models", get(api::list_dbt_models))
+        .route("/notebooks/:id/dbt/run", post(api::run_dbt_models))
+        .route("/notebooks/:id/dbt/test", post(api::run_dbt_tests))
+        .route("/dbt/config", get(api::get_dbt_project_yml))
+        // Airflow integration (v1.0)
+        .route("/airflow/dags", get(api::list_airflow_dags))
+        .route("/airflow/dags/:dag_id/trigger", post(api::trigger_airflow_dag))
+        .route("/airflow/dags/:dag_id/status", get(api::get_airflow_dag_status))
+        .route("/airflow/generate-dag", post(api::generate_airflow_dag))
         .with_state(state.clone());
 
     let ws_routes = Router::new()

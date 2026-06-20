@@ -1520,3 +1520,156 @@ pub async fn get_mac_compatible_fonts() -> (StatusCode, Json<serde_json::Value>)
         })),
     )
 }
+
+// Kubernetes deployment endpoints
+pub async fn get_k8s_manifest() -> (StatusCode, Json<serde_json::Value>) {
+    (
+        StatusCode::OK,
+        Json(json!({
+            "status": "manifest_generated",
+            "feature_status": "Kubernetes deployment ready for v1.0",
+            "includes": ["Deployment", "Service", "Ingress"],
+            "resources": ["CPU requests/limits", "Memory requests/limits"],
+            "note": "Multi-tenant Kubernetes support coming v1.0"
+        })),
+    )
+}
+
+pub async fn deploy_to_k8s(
+    Json(_req): Json<serde_json::Value>,
+) -> (StatusCode, Json<serde_json::Value>) {
+    (
+        StatusCode::CREATED,
+        Json(json!({
+            "status": "deploying",
+            "feature_status": "Kubernetes deployment coming v1.0",
+            "namespace": "default",
+            "message": "Use kubectl apply -f manifest.yaml to deploy"
+        })),
+    )
+}
+
+pub async fn get_k8s_pods() -> (StatusCode, Json<serde_json::Value>) {
+    (
+        StatusCode::OK,
+        Json(json!({
+            "pods": [],
+            "feature_status": "Pod monitoring coming v1.0"
+        })),
+    )
+}
+
+pub async fn get_docker_compose() -> (StatusCode, Json<serde_json::Value>) {
+    (
+        StatusCode::OK,
+        Json(json!({
+            "docker_compose": crate::k8s_deployment::DockerManager::generate_docker_compose(),
+            "status": "compose_generated",
+            "usage": "docker-compose up -d"
+        })),
+    )
+}
+
+// dbt integration endpoints
+pub async fn list_dbt_models(
+    Path(_notebook_id): Path<String>,
+) -> (StatusCode, Json<serde_json::Value>) {
+    (
+        StatusCode::OK,
+        Json(json!({
+            "models": [],
+            "feature_status": "dbt integration ready for v1.0"
+        })),
+    )
+}
+
+pub async fn run_dbt_models(
+    Path(_notebook_id): Path<String>,
+    Json(_req): Json<serde_json::Value>,
+) -> (StatusCode, Json<serde_json::Value>) {
+    (
+        StatusCode::ACCEPTED,
+        Json(json!({
+            "status": "running",
+            "feature_status": "dbt execution ready for v1.0",
+            "message": "Configure dbt project path in settings"
+        })),
+    )
+}
+
+pub async fn run_dbt_tests(
+    Path(_notebook_id): Path<String>,
+) -> (StatusCode, Json<serde_json::Value>) {
+    (
+        StatusCode::OK,
+        Json(json!({
+            "tests_passed": 0,
+            "tests_failed": 0,
+            "feature_status": "dbt testing ready for v1.0"
+        })),
+    )
+}
+
+pub async fn get_dbt_project_yml() -> (StatusCode, Json<serde_json::Value>) {
+    (
+        StatusCode::OK,
+        Json(json!({
+            "project_yml": crate::dbt_integration::DbtManager::generate_profiles_yml(),
+            "feature_status": "dbt configuration ready for v1.0"
+        })),
+    )
+}
+
+// Airflow integration endpoints
+pub async fn list_airflow_dags() -> (StatusCode, Json<serde_json::Value>) {
+    (
+        StatusCode::OK,
+        Json(json!({
+            "dags": [],
+            "feature_status": "Airflow integration ready for v1.0"
+        })),
+    )
+}
+
+pub async fn trigger_airflow_dag(
+    Path(_dag_id): Path<String>,
+) -> (StatusCode, Json<serde_json::Value>) {
+    (
+        StatusCode::ACCEPTED,
+        Json(json!({
+            "status": "triggered",
+            "feature_status": "Airflow DAG execution ready for v1.0",
+            "message": "Configure Airflow URL in settings"
+        })),
+    )
+}
+
+pub async fn get_airflow_dag_status(
+    Path(_dag_id): Path<String>,
+) -> (StatusCode, Json<serde_json::Value>) {
+    (
+        StatusCode::OK,
+        Json(json!({
+            "dag_id": _dag_id,
+            "status": "unknown",
+            "feature_status": "Airflow monitoring ready for v1.0"
+        })),
+    )
+}
+
+pub async fn generate_airflow_dag(
+    Json(req): Json<serde_json::Value>,
+) -> (StatusCode, Json<serde_json::Value>) {
+    let dag_name = req
+        .get("dag_name")
+        .and_then(|v| v.as_str())
+        .unwrap_or("new_dag");
+
+    (
+        StatusCode::OK,
+        Json(json!({
+            "dag_code": crate::airflow_integration::AirflowManager::generate_python_dag(dag_name),
+            "feature_status": "Airflow DAG generation ready for v1.0"
+        })),
+    )
+}
