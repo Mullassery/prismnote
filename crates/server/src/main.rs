@@ -12,6 +12,7 @@ mod output_renderer;
 mod k8s_deployment;
 mod dbt_integration;
 mod airflow_integration;
+mod docker_executor;
 mod execution_pipeline;
 mod file_manager;
 mod files;
@@ -159,6 +160,20 @@ async fn main() -> anyhow::Result<()> {
         .route("/airflow/dags/:dag_id/trigger", post(api::trigger_airflow_dag))
         .route("/airflow/dags/:dag_id/status", get(api::get_airflow_dag_status))
         .route("/airflow/generate-dag", post(api::generate_airflow_dag))
+        // Docker container code execution (v1.0)
+        .route("/docker/containers", get(api::list_docker_containers))
+        .route("/docker/containers/execute", post(api::execute_code_in_container))
+        .route("/docker/containers/:container_id/start", post(api::start_docker_container))
+        .route("/docker/containers/:container_id/stop", post(api::stop_docker_container))
+        .route("/docker/containers/:container_id", delete(api::remove_docker_container))
+        .route("/docker/containers/create", post(api::create_docker_container))
+        .route("/docker/containers/:container_id/logs", get(api::get_container_logs))
+        .route("/docker/containers/:container_id/stats", get(api::get_container_stats))
+        .route("/docker/containers/:container_id/files/:path",
+            get(api::read_container_file).post(api::write_container_file))
+        .route("/docker/containers/:container_id/files-list/:path",
+            get(api::get_container_files))
+        .route("/docker/images/pull", post(api::pull_docker_image))
         .with_state(state.clone());
 
     let ws_routes = Router::new()

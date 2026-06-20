@@ -1721,3 +1721,344 @@ pub async fn generate_airflow_dag(
         })),
     )
 }
+
+// Docker container code execution endpoints
+pub async fn list_docker_containers() -> (StatusCode, Json<serde_json::Value>) {
+    let executor = crate::docker_executor::DockerExecutor::new(None);
+
+    match executor.list_containers().await {
+        Ok(containers) => (
+            StatusCode::OK,
+            Json(json!({
+                "containers": containers,
+                "status": "success",
+                "note": "Requires Docker Desktop running in parallel"
+            })),
+        ),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({
+                "error": e,
+                "status": "docker_not_available",
+                "note": "Ensure Docker Desktop is running"
+            })),
+        ),
+    }
+}
+
+#[derive(Deserialize)]
+pub struct ExecuteInContainerRequest {
+    pub container_id: String,
+    pub code: String,
+    pub language: Option<String>,
+    pub working_dir: Option<String>,
+    pub timeout_seconds: Option<u32>,
+}
+
+pub async fn execute_code_in_container(
+    Json(req): Json<ExecuteInContainerRequest>,
+) -> (StatusCode, Json<serde_json::Value>) {
+    let executor = crate::docker_executor::DockerExecutor::new(None);
+    let lang = req.language.unwrap_or_else(|| "python".to_string());
+
+    let formatted_code = match lang.as_str() {
+        "python" => format!("python -c \"{}\"", req.code.replace("\"", "\\\"")),
+        "bash" | "shell" => req.code,
+        "javascript" | "node" => format!("node -e \"{}\"", req.code.replace("\"", "\\\"")),
+        "ruby" => format!("ruby -e \"{}\"", req.code.replace("\"", "\\\"")),
+        _ => req.code,
+    };
+
+    match executor
+        .execute_in_container(&req.container_id, &formatted_code, req.working_dir)
+        .await
+    {
+        Ok(result) => (
+            StatusCode::OK,
+            Json(json!({
+                "container_id": result.container_id,
+                "exit_code": result.exit_code,
+                "stdout": result.stdout,
+                "stderr": result.stderr,
+                "execution_time_ms": result.execution_time_ms,
+                "status": "success"
+            })),
+        ),
+        Err(e) => (
+            StatusCode::BAD_REQUEST,
+            Json(json!({
+                "error": e,
+                "status": "execution_failed"
+            })),
+        ),
+    }
+}
+
+pub async fn get_container_files(
+    Path((container_id, path)): Path<(String, String)>,
+) -> (StatusCode, Json<serde_json::Value>) {
+    let executor = crate::docker_executor::DockerExecutor::new(None);
+
+    match executor.get_container_files(&container_id, &path).await {
+        Ok(files) => (
+            StatusCode::OK,
+            Json(json!({
+                "container_id": container_id,
+                "path": path,
+                "files": files,
+                "status": "success"
+            })),
+        ),
+        Err(e) => (
+            StatusCode::NOT_FOUND,
+            Json(json!({
+                "error": e,
+                "status": "failed"
+            })),
+        ),
+    }
+}
+
+pub async fn read_container_file(
+    Path((container_id, path)): Path<(String, String)>,
+) -> (StatusCode, Json<serde_json::Value>) {
+    let executor = crate::docker_executor::DockerExecutor::new(None);
+
+    match executor.read_container_file(&container_id, &path).await {
+        Ok(content) => (
+            StatusCode::OK,
+            Json(json!({
+                "container_id": container_id,
+                "path": path,
+                "content": content,
+                "status": "success"
+            })),
+        ),
+        Err(e) => (
+            StatusCode::NOT_FOUND,
+            Json(json!({
+                "error": e,
+                "status": "failed"
+            })),
+        ),
+    }
+}
+
+#[derive(Deserialize)]
+pub struct WriteContainerFileRequest {
+    pub content: String,
+}
+
+pub async fn write_container_file(
+    Path((container_id, path)): Path<(String, String)>,
+    Json(req): Json<WriteContainerFileRequest>,
+) -> (StatusCode, Json<serde_json::Value>) {
+    let executor = crate::docker_executor::DockerExecutor::new(None);
+
+    match executor
+        .write_container_file(&container_id, &path, req.content)
+        .await
+    {
+        Ok(_) => (
+            StatusCode::OK,
+            Json(json!({
+                "container_id": container_id,
+                "path": path,
+                "status": "written"
+            })),
+        ),
+        Err(e) => (
+            StatusCode::BAD_REQUEST,
+            Json(json!({
+                "error": e,
+                "status": "failed"
+            })),
+        ),
+    }
+}
+
+pub async fn get_container_logs(
+    Path(container_id): Path<String>,
+) -> (StatusCode, Json<serde_json::Value>) {
+    let executor = crate::docker_executor::DockerExecutor::new(None);
+
+    match executor.get_container_logs(&container_id, Some(100)).await {
+        Ok(logs) => (
+            StatusCode::OK,
+            Json(json!({
+                "container_id": container_id,
+                "logs": logs,
+                "status": "success"
+            })),
+        ),
+        Err(e) => (
+            StatusCode::NOT_FOUND,
+            Json(json!({
+                "error": e,
+                "status": "failed"
+            })),
+        ),
+    }
+}
+
+pub async fn get_container_stats(
+    Path(container_id): Path<String>,
+) -> (StatusCode, Json<serde_json::Value>) {
+    let executor = crate::docker_executor::DockerExecutor::new(None);
+
+    match executor.get_container_stats(&container_id).await {
+        Ok(stats) => (
+            StatusCode::OK,
+            Json(json!({
+                "container_id": stats.container_id,
+                "cpu_percent": stats.cpu_percent,
+                "memory_usage": stats.memory_usage,
+                "memory_limit": stats.memory_limit,
+                "network_rx": stats.network_rx,
+                "network_tx": stats.network_tx,
+                "block_read": stats.block_read,
+                "block_write": stats.block_write,
+                "status": "success"
+            })),
+        ),
+        Err(e) => (
+            StatusCode::NOT_FOUND,
+            Json(json!({
+                "error": e,
+                "status": "failed"
+            })),
+        ),
+    }
+}
+
+#[derive(Deserialize)]
+pub struct CreateContainerRequest {
+    pub image: String,
+    pub name: String,
+    pub environment: Option<std::collections::HashMap<String, String>>,
+    pub ports: Option<std::collections::HashMap<String, u16>>,
+}
+
+pub async fn create_docker_container(
+    Json(req): Json<CreateContainerRequest>,
+) -> (StatusCode, Json<serde_json::Value>) {
+    let executor = crate::docker_executor::DockerExecutor::new(None);
+    let env = req.environment.unwrap_or_default();
+    let ports = req.ports.unwrap_or_default();
+
+    match executor.create_container(&req.image, &req.name, env, ports).await {
+        Ok(container) => (
+            StatusCode::CREATED,
+            Json(json!({
+                "container": container,
+                "status": "created",
+                "note": "Container created but not started. Call start endpoint to run."
+            })),
+        ),
+        Err(e) => (
+            StatusCode::BAD_REQUEST,
+            Json(json!({
+                "error": e,
+                "status": "failed"
+            })),
+        ),
+    }
+}
+
+pub async fn start_docker_container(
+    Path(container_id): Path<String>,
+) -> (StatusCode, Json<serde_json::Value>) {
+    let executor = crate::docker_executor::DockerExecutor::new(None);
+
+    match executor.start_container(&container_id).await {
+        Ok(_) => (
+            StatusCode::OK,
+            Json(json!({
+                "container_id": container_id,
+                "status": "started"
+            })),
+        ),
+        Err(e) => (
+            StatusCode::BAD_REQUEST,
+            Json(json!({
+                "error": e,
+                "status": "failed"
+            })),
+        ),
+    }
+}
+
+pub async fn stop_docker_container(
+    Path(container_id): Path<String>,
+) -> (StatusCode, Json<serde_json::Value>) {
+    let executor = crate::docker_executor::DockerExecutor::new(None);
+
+    match executor.stop_container(&container_id).await {
+        Ok(_) => (
+            StatusCode::OK,
+            Json(json!({
+                "container_id": container_id,
+                "status": "stopped"
+            })),
+        ),
+        Err(e) => (
+            StatusCode::BAD_REQUEST,
+            Json(json!({
+                "error": e,
+                "status": "failed"
+            })),
+        ),
+    }
+}
+
+pub async fn remove_docker_container(
+    Path(container_id): Path<String>,
+) -> (StatusCode, Json<serde_json::Value>) {
+    let executor = crate::docker_executor::DockerExecutor::new(None);
+
+    match executor.remove_container(&container_id).await {
+        Ok(_) => (
+            StatusCode::OK,
+            Json(json!({
+                "container_id": container_id,
+                "status": "removed"
+            })),
+        ),
+        Err(e) => (
+            StatusCode::BAD_REQUEST,
+            Json(json!({
+                "error": e,
+                "status": "failed"
+            })),
+        ),
+    }
+}
+
+pub async fn pull_docker_image(
+    Json(req): Json<serde_json::Value>,
+) -> (StatusCode, Json<serde_json::Value>) {
+    let image = req
+        .get("image")
+        .and_then(|v| v.as_str())
+        .unwrap_or("ubuntu:latest");
+
+    let executor = crate::docker_executor::DockerExecutor::new(None);
+
+    match executor.pull_image(image).await {
+        Ok(msg) => (
+            StatusCode::OK,
+            Json(json!({
+                "image": image,
+                "message": msg,
+                "status": "success"
+            })),
+        ),
+        Err(e) => (
+            StatusCode::BAD_REQUEST,
+            Json(json!({
+                "error": e,
+                "status": "failed"
+            })),
+        ),
+    }
+}
