@@ -112,26 +112,38 @@ POST   /api/outputs/:cell_id/zoom/reset   Reset zoom
 
 Features:
 - Font size adjustment (10-20px)
-- Mac-compatible font families:
-  - SF Mono (recommended)
-  - Monaco
-  - Menlo
-  - Courier New
-  - Inconsolata
-  - Roboto Mono
-  - JetBrains Mono
-  - Source Code Pro
-  - IBM Plex Mono
-  - Cascadia Code
+- Font selection with platform compatibility indicators
 - Line height adjustment
 - Theme selection (dark/light)
 
+**macOS-Only Fonts** (⚠️ NOT available on Linux/Windows):
+- SF Mono (macOS recommended)
+- Monaco (macOS system font)
+- Menlo (macOS system font)
+
+**Cross-Platform Fonts** (✓ Works everywhere):
+- Courier New (universal)
+- Inconsolata (requires install)
+- Roboto Mono (requires install, Google's font)
+- JetBrains Mono (requires install, IDE font)
+- Source Code Pro (requires install, Adobe)
+- IBM Plex Mono (requires install, open source)
+- Cascadia Code (requires install, Microsoft)
+
+Platform-Specific Recommendations:
+- **macOS:** SF Mono (system font)
+- **Linux:** Roboto Mono or JetBrains Mono
+- **Windows:** Cascadia Code or Courier New
+
 API Endpoints:
 ```
-GET    /api/settings/display              Get display settings
+GET    /api/settings/display              Get display settings (with platform warnings)
 PUT    /api/settings/display              Update settings
-GET    /api/settings/fonts/mac            Get Mac fonts
+GET    /api/settings/fonts/mac            Get all fonts with compatibility info
 ```
+
+**Fallback Behavior:**
+If a macOS-only font is selected on Linux/Windows, the system automatically falls back to Courier New or system monospace font.
 
 ---
 

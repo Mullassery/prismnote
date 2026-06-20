@@ -1418,36 +1418,35 @@ pub struct DisplaySettingsRequest {
     pub theme: Option<String>,
 }
 
-#[derive(Serialize)]
-pub struct DisplaySettings {
-    pub font_size: u32,
-    pub font_family: String,
-    pub line_height: f32,
-    pub theme: String,
-    pub available_fonts: Vec<String>,
-}
-
-pub async fn get_display_settings() -> (StatusCode, Json<DisplaySettings>) {
+pub async fn get_display_settings() -> (StatusCode, Json<serde_json::Value>) {
     (
         StatusCode::OK,
-        Json(DisplaySettings {
-            font_size: 14,
-            font_family: "Monaco".to_string(),
-            line_height: 1.6,
-            theme: "dark".to_string(),
-            available_fonts: vec![
-                "Monaco".to_string(),
-                "Menlo".to_string(),
-                "SF Mono".to_string(),
-                "Courier New".to_string(),
-                "Inconsolata".to_string(),
-                "Roboto Mono".to_string(),
-                "Source Code Pro".to_string(),
-                "JetBrains Mono".to_string(),
-                "IBM Plex Mono".to_string(),
-                "Cascadia Code".to_string(),
-            ],
-        }),
+        Json(json!({
+            "font_size": 14,
+            "font_family": "Roboto Mono",
+            "line_height": 1.6,
+            "theme": "dark",
+            "available_fonts": {
+                "mac_only": {
+                    "warning": "MACOS ONLY - Not available on Linux/Windows",
+                    "fonts": ["Monaco", "Menlo", "SF Mono"]
+                },
+                "cross_platform": {
+                    "note": "Available on Windows, macOS, and Linux",
+                    "fonts": [
+                        "Courier New",
+                        "Inconsolata",
+                        "Roboto Mono",
+                        "Source Code Pro",
+                        "JetBrains Mono",
+                        "IBM Plex Mono",
+                        "Cascadia Code"
+                    ]
+                }
+            },
+            "current_platform_recommendation": "Roboto Mono (cross-platform) or Cascadia Code",
+            "note": "If you select a macOS-only font on Linux/Windows, the system will automatically fallback to Courier New or system monospace"
+        })),
     )
 }
 
@@ -1470,53 +1469,102 @@ pub async fn get_mac_compatible_fonts() -> (StatusCode, Json<serde_json::Value>)
     (
         StatusCode::OK,
         Json(json!({
-            "mac_fonts": [
+            "mac_only_fonts": [
                 {
                     "name": "Monaco",
                     "monospace": true,
                     "system_font": true,
-                    "description": "Apple's classic monospace font"
+                    "platform": "macOS only",
+                    "compatibility": "MACOS_ONLY",
+                    "warning": "Not available on Linux or Windows",
+                    "description": "Apple's classic monospace font - macOS only"
                 },
                 {
                     "name": "Menlo",
                     "monospace": true,
                     "system_font": true,
-                    "description": "Improved Monaco for Leopard+"
+                    "platform": "macOS only",
+                    "compatibility": "MACOS_ONLY",
+                    "warning": "Not available on Linux or Windows",
+                    "description": "Improved Monaco for Leopard+ - macOS only"
                 },
                 {
                     "name": "SF Mono",
                     "monospace": true,
                     "system_font": true,
-                    "description": "San Francisco Mono, modern Apple font"
-                },
+                    "platform": "macOS only",
+                    "compatibility": "MACOS_ONLY",
+                    "warning": "Recommended for Mac - Not available on Linux or Windows",
+                    "description": "San Francisco Mono, modern Apple font - macOS only"
+                }
+            ],
+            "cross_platform_fonts": [
                 {
                     "name": "Courier New",
                     "monospace": true,
                     "system_font": true,
-                    "description": "Classic monospace"
+                    "platform": "All platforms",
+                    "compatibility": "UNIVERSAL",
+                    "description": "Classic monospace - available on Windows, Mac, Linux"
                 },
                 {
                     "name": "Inconsolata",
                     "monospace": true,
                     "system_font": false,
-                    "description": "Beautiful open-source monospace"
+                    "platform": "All platforms (requires install)",
+                    "compatibility": "UNIVERSAL",
+                    "description": "Beautiful open-source monospace - Windows, Mac, Linux"
                 },
                 {
                     "name": "Roboto Mono",
                     "monospace": true,
                     "system_font": false,
-                    "description": "Google's monospace font"
+                    "platform": "All platforms (requires install)",
+                    "compatibility": "UNIVERSAL",
+                    "description": "Google's monospace font - Windows, Mac, Linux"
                 },
                 {
                     "name": "JetBrains Mono",
                     "monospace": true,
                     "system_font": false,
-                    "description": "JetBrains' coding font"
+                    "platform": "All platforms (requires install)",
+                    "compatibility": "UNIVERSAL",
+                    "description": "JetBrains' coding font - Windows, Mac, Linux"
+                },
+                {
+                    "name": "Source Code Pro",
+                    "monospace": true,
+                    "system_font": false,
+                    "platform": "All platforms (requires install)",
+                    "compatibility": "UNIVERSAL",
+                    "description": "Adobe's monospace font - Windows, Mac, Linux"
+                },
+                {
+                    "name": "IBM Plex Mono",
+                    "monospace": true,
+                    "system_font": false,
+                    "platform": "All platforms (requires install)",
+                    "compatibility": "UNIVERSAL",
+                    "description": "IBM's open-source font - Windows, Mac, Linux"
+                },
+                {
+                    "name": "Cascadia Code",
+                    "monospace": true,
+                    "system_font": false,
+                    "platform": "All platforms (requires install)",
+                    "compatibility": "UNIVERSAL",
+                    "description": "Microsoft's monospace font - Windows, Mac, Linux"
                 }
             ],
-            "recommended": "SF Mono",
+            "platform_detection": {
+                "macos": "SF Mono recommended (system font)",
+                "linux": "Roboto Mono or JetBrains Mono recommended",
+                "windows": "Cascadia Code or Courier New recommended"
+            },
+            "recommended": "SF Mono (macOS) / Roboto Mono (Linux) / Cascadia Code (Windows)",
             "font_sizes": [10, 11, 12, 13, 14, 15, 16, 18, 20],
-            "default_font_size": 14
+            "default_font_size": 14,
+            "note": "macOS-only fonts will not render on Linux/Windows systems. Fallback to system monospace or cross-platform fonts will be used."
         })),
     )
 }
