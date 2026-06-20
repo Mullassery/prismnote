@@ -170,6 +170,18 @@ Configure API key: `export ANTHROPIC_API_KEY=sk-...`
 
 Contributions welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
+## Open Source Compliance
+
+PrismNote is **100% open-source** and fully OSS-compliant:
+
+- **License:** MIT (no restrictions)
+- **Dependencies:** All MIT, Apache 2.0, BSD, or Public Domain
+- **Database Connectors:** PostgreSQL (LGPL), MySQL (MIT), SQLite (Public Domain), DuckDB (MIT), MongoDB (Apache)
+- **AI Options:** Claude API (optional), Ollama local (MIT), or OpenAI (optional)
+- **No proprietary code** — everything is transparent and auditable
+
+See [DATABASE_CONNECTORS.md](./DATABASE_CONNECTORS.md) for license details on database drivers.
+
 ## License
 
 MIT © 2026 Georgi Mammen Mullassery
