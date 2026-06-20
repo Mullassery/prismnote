@@ -196,7 +196,9 @@ impl ExecutionPipeline {
             }
         }
 
-        sorted.reverse();
+        // dfs_visit recurses into a node's dependencies before pushing the node,
+        // so `sorted` is already in dependency-first order. (No reverse: the graph
+        // stores dependencies as edges, not dependents.)
         Ok(sorted)
     }
 
