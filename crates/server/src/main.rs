@@ -1,11 +1,15 @@
 mod ai;
 mod api;
 mod cell_executor;
+mod data_profiler;
 mod db;
 mod files;
 mod kernel;
 mod library_advisor;
 mod models;
+mod rbac;
+mod scheduler;
+mod versioning;
 mod ws;
 
 use axum::{
