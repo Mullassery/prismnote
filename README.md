@@ -286,27 +286,27 @@ Configure API key: `export ANTHROPIC_API_KEY=sk-...`
 
 ## Feature Comparison
 
-| Feature | PrismNote | JupyterLab | Zeppelin | Deepnote |
-|---------|-----------|-----------|----------|----------|
-| UI/UX | Modern | Functional | Good | Excellent |
-| License | MIT | BSD-3-Clause | Apache 2.0 | Proprietary |
-| Self-Hosted | Yes | Yes | Yes | Cloud Only |
-| Open Source | Yes | Yes | Yes | No |
+| Feature | PrismNote | JupyterLab | Zeppelin | Apache Airflow |
+|---------|-----------|-----------|----------|-----------------|
+| UI/UX | Modern | Functional | Good | Functional |
+| License | MIT | BSD-3-Clause | Apache 2.0 | Apache 2.0 |
+| Self-Hosted | Yes | Yes | Yes | Yes |
+| Open Source | Yes | Yes | Yes | Yes |
 | Cloud Ready | Yes (v0.4) | Plugins | Yes | Yes |
 | **Versioning** | Yes | No | Yes | Yes |
 | **RBAC** | Yes | Minimal | Yes | Yes |
 | **Scheduling** | Yes | No | Yes | Yes |
 | **SQL Support** | Yes (native) | Plugins | Yes | Yes |
 | **Spark Integration** | Yes (native) | No | Yes | Yes |
-| **AI Assistance** | Yes | No | No | Yes |
-| **Data Profiling** | Yes | No | No | Yes |
-| **Model Training** | Yes | No | No | Yes |
+| **AI Assistance** | Yes | No | No | No |
+| **Data Profiling** | Yes | No | No | No |
+| **Model Training** | Yes | No | No | No |
 | **Enterprise Auth** | Yes (AAD/LDAP) | Minimal | No | Yes |
 | **Multi-Tenant** | Yes | No | No | Yes |
-| **Cost Tracking** | Yes | No | Limited | Yes |
-| **Jupyter Compatible** | Yes | Native | No | Partial |
-| **Offline Mode** | Yes | Yes | Yes | No |
-| **Free Tier** | Unlimited | Unlimited | Unlimited | Paid |
+| **Cost Tracking** | Yes | No | Limited | No |
+| **Jupyter Compatible** | Yes | Native | No | No |
+| **Offline Mode** | Yes | Yes | Yes | Yes |
+| **Free Tier** | Unlimited | Unlimited | Unlimited | Unlimited |
 
 ## Documentation
 
