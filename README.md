@@ -154,6 +154,22 @@ data = pd.DataFrame({
 print(data)
 ```
 
+### Application Screenshots
+
+**Welcome Screen - Light Theme**
+![PrismNote Welcome](docs/screenshots/01_welcome.png)
+
+**Notebook Editor - Dark Theme**
+![PrismNote Notebook Editor](docs/screenshots/02_notebook_dark.png)
+
+The interface features a modern, responsive design with:
+- Clean sidebar navigation for notebook management
+- Intuitive theme switching (light/dark mode)
+- Professional typography and color scheme
+- WCAG 2.1 AA accessibility compliance
+- Smooth animations and micro-interactions
+- Dark mode that reduces eye strain in low-light environments
+
 ---
 
 ## Docker Setup (Recommended for Teams & Production)
