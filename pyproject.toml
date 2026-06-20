@@ -1,10 +1,10 @@
 [build-system]
-requires = ["maturin>=1.0,<2.0"]
-build-backend = "maturin"
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "prismnote"
-version = "0.3.0"
+version = "0.3.1"
 description = "Modern, open-source Jupyter-compatible data science notebook with Rust performance"
 readme = "README.md"
 license = { text = "MIT" }
@@ -22,10 +22,8 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
-    "Programming Language :: Rust",
     "Topic :: Scientific/Engineering",
     "Topic :: Software Development :: Libraries",
-    "Topic :: Text Editors :: Integrated Development Environments",
     "Environment :: Web Environment",
 ]
 dependencies = [
@@ -70,10 +68,11 @@ Documentation = "https://github.com/Mullassery/prismnote#readme"
 [project.scripts]
 prismnote = "prismnote._cli:main"
 
-[tool.maturin]
-manifest-path = "crates/server/Cargo.toml"
-python-source = "python"
-module-name = "prismnote._prismnote"
-features = ["pyo3/extension-module"]
-profile = "release"
-strip = true
+# prismnote is a pure-Python wrapper: _cli.py downloads and launches the
+# prebuilt PrismNote server binary. The Python package lives under python/.
+[tool.setuptools]
+package-dir = { "" = "python" }
+
+[tool.setuptools.packages.find]
+where = ["python"]
+include = ["prismnote*"]
