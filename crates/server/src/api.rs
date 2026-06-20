@@ -1,3 +1,4 @@
+use crate::ai::AIRequest;
 use crate::models::{ExecuteCellRequest, ExecuteCellResponse, Notebook, Output};
 use crate::AppState;
 use axum::{
@@ -118,6 +119,129 @@ pub async fn execute_cell(
             Json(ExecuteCellResponse {
                 execution_count: 0,
                 outputs: vec![],
+            }),
+        ),
+    }
+}
+
+#[derive(Serialize)]
+pub struct AIConfigResponse {
+    pub configured: bool,
+    pub provider: Option<String>,
+}
+
+pub async fn get_ai_config(
+    State(state): State<Arc<AppState>>,
+) -> Json<AIConfigResponse> {
+    let configured = state.ai_engine.is_some();
+    let provider = if let Some(_) = &state.ai_engine {
+        Some("configured".to_string())
+    } else {
+        None
+    };
+    Json(AIConfigResponse { configured, provider })
+}
+
+#[derive(Deserialize)]
+pub struct AIConfigRequest {
+    pub provider: String,
+    pub ollama_url: Option<String>,
+    pub ollama_model: Option<String>,
+    pub claude_api_key: Option<String>,
+    pub openai_api_key: Option<String>,
+    pub openai_model: Option<String>,
+}
+
+pub async fn set_ai_config(
+    State(_state): State<Arc<AppState>>,
+    Json(req): Json<AIConfigRequest>,
+) -> (StatusCode, Json<AIConfigResponse>) {
+    // Store config in environment or file
+    if let Ok(_) = std::env::var("PRISMNOTE_AI_PROVIDER") {
+        (StatusCode::OK, Json(AIConfigResponse {
+            configured: true,
+            provider: Some(req.provider),
+        }))
+    } else {
+        (StatusCode::BAD_REQUEST, Json(AIConfigResponse {
+            configured: false,
+            provider: None,
+        }))
+    }
+}
+
+#[derive(Serialize)]
+pub struct AIResponseData {
+    pub suggestion: String,
+}
+
+pub async fn ai_explain(
+    State(state): State<Arc<AppState>>,
+    Json(req): Json<AIRequest>,
+) -> (StatusCode, Json<AIResponseData>) {
+    match &state.ai_engine {
+        Some(engine) => match engine.explain(&req.code).await {
+            Ok(suggestion) => (StatusCode::OK, Json(AIResponseData { suggestion })),
+            Err(_) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(AIResponseData {
+                    suggestion: "Error getting AI response".to_string(),
+                }),
+            ),
+        },
+        None => (
+            StatusCode::BAD_REQUEST,
+            Json(AIResponseData {
+                suggestion: "AI not configured".to_string(),
+            }),
+        ),
+    }
+}
+
+pub async fn ai_fix(
+    State(state): State<Arc<AppState>>,
+    Json(req): Json<AIRequest>,
+) -> (StatusCode, Json<AIResponseData>) {
+    match &state.ai_engine {
+        Some(engine) => {
+            let error = req.error.as_deref().unwrap_or("Unknown error");
+            match engine.fix_error(&req.code, error).await {
+                Ok(suggestion) => (StatusCode::OK, Json(AIResponseData { suggestion })),
+                Err(_) => (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(AIResponseData {
+                        suggestion: "Error getting AI response".to_string(),
+                    }),
+                ),
+            }
+        }
+        None => (
+            StatusCode::BAD_REQUEST,
+            Json(AIResponseData {
+                suggestion: "AI not configured".to_string(),
+            }),
+        ),
+    }
+}
+
+pub async fn ai_complete(
+    State(state): State<Arc<AppState>>,
+    Json(req): Json<AIRequest>,
+) -> (StatusCode, Json<AIResponseData>) {
+    match &state.ai_engine {
+        Some(engine) => match engine.complete_code(&req.code, req.context.as_deref()).await {
+            Ok(suggestion) => (StatusCode::OK, Json(AIResponseData { suggestion })),
+            Err(_) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(AIResponseData {
+                    suggestion: "Error getting AI response".to_string(),
+                }),
+            ),
+        },
+        None => (
+            StatusCode::BAD_REQUEST,
+            Json(AIResponseData {
+                suggestion: "AI not configured".to_string(),
             }),
         ),
     }

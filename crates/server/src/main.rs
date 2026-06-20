@@ -1,3 +1,4 @@
+mod ai;
 mod api;
 mod files;
 mod kernel;
@@ -18,6 +19,7 @@ use tracing_subscriber;
 
 pub struct AppState {
     notebooks_dir: String,
+    ai_engine: Option<ai::AIEngine>,
 }
 
 #[tokio::main]
@@ -29,12 +31,34 @@ async fn main() -> anyhow::Result<()> {
 
     std::fs::create_dir_all(&notebooks_dir)?;
 
-    let state = Arc::new(AppState { notebooks_dir });
+    // Try to initialize AI engine from environment variables
+    let ai_engine = if let Ok(provider) = std::env::var("PRISMNOTE_AI_PROVIDER") {
+        let config = ai::AIConfig {
+            provider,
+            ollama_url: std::env::var("PRISMNOTE_OLLAMA_URL").ok(),
+            ollama_model: std::env::var("PRISMNOTE_OLLAMA_MODEL").ok(),
+            claude_api_key: std::env::var("ANTHROPIC_API_KEY").ok(),
+            openai_api_key: std::env::var("OPENAI_API_KEY").ok(),
+            openai_model: std::env::var("PRISMNOTE_OPENAI_MODEL").ok(),
+        };
+        Some(ai::AIEngine::new(config))
+    } else {
+        None
+    };
+
+    let state = Arc::new(AppState {
+        notebooks_dir,
+        ai_engine,
+    });
 
     let api_routes = Router::new()
         .route("/notebooks", get(api::list_notebooks).post(api::create_notebook))
         .route("/notebooks/:id", get(api::get_notebook).delete(api::delete_notebook))
         .route("/notebooks/:id/execute", post(api::execute_cell))
+        .route("/ai/explain", post(api::ai_explain))
+        .route("/ai/fix", post(api::ai_fix))
+        .route("/ai/complete", post(api::ai_complete))
+        .route("/ai/config", get(api::get_ai_config).post(api::set_ai_config))
         .with_state(state.clone());
 
     let ws_routes = Router::new()
