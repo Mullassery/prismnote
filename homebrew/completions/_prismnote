@@ -1,0 +1,31 @@
+#compdef prismnote
+# Zsh completion for PrismNote
+
+_prismnote() {
+    local -a commands
+    local context state line
+
+    commands=(
+        '--help[Show help message]'
+        '--version[Show version information]'
+        '--port[Server port number]:port:->port'
+        '--data[Data directory path]:directory:_directories'
+        '--host[Server host address]:host:->host'
+        '--log-level[Logging level]:level:(debug info warn error)'
+        '--config[Configuration file]:file:_files'
+        '--plugins[Plugins directory]:directory:_directories'
+    )
+
+    _arguments -s -S $commands
+
+    case $state in
+        port)
+            _message -e 'port number' 'Port (default: 8000)'
+            ;;
+        host)
+            _message -e 'host address' 'Host address (default: localhost)'
+            ;;
+    esac
+}
+
+_prismnote "$@"

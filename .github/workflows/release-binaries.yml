@@ -1,0 +1,238 @@
+name: Build & Release Binaries
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to build (e.g., v1.0.0)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  build-matrix:
+    name: Build for ${{ matrix.target }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # macOS builds
+          - runner: macos-latest
+            target: x86_64-apple-darwin
+            artifact_name: prismnote-x86_64-apple-darwin
+            use_cross: false
+
+          - runner: macos-14
+            target: aarch64-apple-darwin
+            artifact_name: prismnote-aarch64-apple-darwin
+            use_cross: false
+
+          # Linux builds
+          - runner: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            artifact_name: prismnote-x86_64-unknown-linux-gnu
+            use_cross: true
+
+          - runner: ubuntu-latest
+            target: aarch64-unknown-linux-gnu
+            artifact_name: prismnote-aarch64-unknown-linux-gnu
+            use_cross: true
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install cross
+        if: matrix.use_cross
+        run: cargo install cross
+
+      - name: Build binary
+        run: |
+          if [ "${{ matrix.use_cross }}" = "true" ]; then
+            cross build --release --target ${{ matrix.target }}
+          else
+            cargo build --release --target ${{ matrix.target }}
+          fi
+
+      - name: Prepare artifacts
+        shell: bash
+        run: |
+          SRC_DIR="target/${{ matrix.target }}/release"
+          BINARY="prismnote"
+
+          # Handle Windows
+          if [[ "${{ matrix.target }}" == *"windows"* ]]; then
+            BINARY="${BINARY}.exe"
+          fi
+
+          # Create archive
+          mkdir -p "dist"
+          cd "$SRC_DIR"
+          tar czf "${{ github.workspace }}/dist/${{ matrix.artifact_name }}.tar.gz" "$BINARY" 2>/dev/null || zip -q "${{ github.workspace }}/dist/${{ matrix.artifact_name }}.zip" "$BINARY"
+          cd "${{ github.workspace }}"
+
+      - name: Generate checksums
+        run: |
+          cd dist
+          shasum -a 256 *.tar.gz *.zip 2>/dev/null | tee checksums-${{ matrix.target }}.txt
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: binaries-${{ matrix.target }}
+          path: |
+            dist/${{ matrix.artifact_name }}.*
+            dist/checksums-${{ matrix.target }}.txt
+          retention-days: 7
+
+  create-release:
+    name: Create GitHub Release
+    needs: build-matrix
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v3
+        with:
+          path: dist
+
+      - name: Flatten artifact structure
+        run: |
+          mkdir -p release-artifacts
+          find dist -type f \( -name "*.tar.gz" -o -name "*.zip" -o -name "checksums*.txt" \) -exec mv {} release-artifacts/ \;
+          ls -lah release-artifacts/
+
+      - name: Create checksums file
+        run: |
+          cd release-artifacts
+          cat checksums-*.txt > CHECKSUMS.sha256
+          echo "" >> CHECKSUMS.sha256
+          echo "Generated: $(date)" >> CHECKSUMS.sha256
+
+      - name: Get version from tag
+        id: version
+        run: echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.version.outputs.version }}
+          name: PrismNote ${{ steps.version.outputs.version }}
+          draft: false
+          prerelease: ${{ contains(steps.version.outputs.version, 'alpha') || contains(steps.version.outputs.version, 'beta') }}
+          files: release-artifacts/*
+          body: |
+            ## Downloads
+
+            ### macOS
+            - [Apple Silicon (M1/M2/M3)](../../releases/download/${{ steps.version.outputs.version }}/prismnote-aarch64-apple-darwin.tar.gz)
+            - [Intel (x86_64)](../../releases/download/${{ steps.version.outputs.version }}/prismnote-x86_64-apple-darwin.tar.gz)
+
+            ### Linux
+            - [x86_64](../../releases/download/${{ steps.version.outputs.version }}/prismnote-x86_64-unknown-linux-gnu.tar.gz)
+            - [ARM64](../../releases/download/${{ steps.version.outputs.version }}/prismnote-aarch64-unknown-linux-gnu.tar.gz)
+
+            ### Installation
+
+            #### Homebrew (macOS/Linux)
+            ```bash
+            brew tap Mullassery/prismnote
+            brew install prismnote@${{ steps.version.outputs.version }}
+            ```
+
+            #### Direct Download
+            ```bash
+            # Download appropriate binary for your platform from above
+            tar xzf prismnote-*.tar.gz
+            sudo mv prismnote /usr/local/bin/
+            ```
+
+            #### Verify Installation
+            ```bash
+            prismnote --version
+            ```
+
+            ### Checksums
+
+            All binaries are signed with SHA256 checksums. Verify your download:
+            ```bash
+            shasum -a 256 -c CHECKSUMS.sha256
+            ```
+
+            See [Release Notes](../../releases/tag/${{ steps.version.outputs.version }}) for changes.
+
+  homebrew-pr:
+    name: Create Homebrew Tap PR
+    needs: create-release
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/') && !contains(github.ref, 'alpha') && !contains(github.ref, 'beta')
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract version
+        id: version
+        run: echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Download checksums
+        run: |
+          gh release download ${{ steps.version.outputs.version }} --pattern "CHECKSUMS.sha256" --dir .
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Update Homebrew formula
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+
+          # Extract SHA256 values for each platform
+          ARM64_DARWIN=$(grep "prismnote-aarch64-apple-darwin.tar.gz" CHECKSUMS.sha256 | awk '{print $1}')
+          X86_DARWIN=$(grep "prismnote-x86_64-apple-darwin.tar.gz" CHECKSUMS.sha256 | awk '{print $1}')
+          ARM64_LINUX=$(grep "prismnote-aarch64-unknown-linux-gnu.tar.gz" CHECKSUMS.sha256 | awk '{print $1}')
+          X86_LINUX=$(grep "prismnote-x86_64-unknown-linux-gnu.tar.gz" CHECKSUMS.sha256 | awk '{print $1}')
+
+          # Update Formula
+          sed -i "s|url .*aarch64-apple-darwin.*|url \"https://github.com/Mullassery/prismnote/releases/download/${VERSION}/prismnote-aarch64-apple-darwin.tar.gz\"|" Formula/prismnote.rb
+          sed -i "s|sha256 \"PLACEHOLDER_ARM64_SHA256\"|sha256 \"${ARM64_DARWIN}\"|" Formula/prismnote.rb
+
+          sed -i "s|url .*x86_64-apple-darwin.*|url \"https://github.com/Mullassery/prismnote/releases/download/${VERSION}/prismnote-x86_64-apple-darwin.tar.gz\"|" Formula/prismnote.rb
+          sed -i "s|sha256 \"PLACEHOLDER_X86_64_SHA256\"|sha256 \"${X86_DARWIN}\"|" Formula/prismnote.rb
+
+          sed -i "s|url .*aarch64-unknown-linux-gnu.*|url \"https://github.com/Mullassery/prismnote/releases/download/${VERSION}/prismnote-aarch64-unknown-linux-gnu.tar.gz\"|" Formula/prismnote.rb
+          sed -i "s|sha256 \"PLACEHOLDER_ARM64_LINUX_SHA256\"|sha256 \"${ARM64_LINUX}\"|" Formula/prismnote.rb
+
+          sed -i "s|url .*x86_64-unknown-linux-gnu.*|url \"https://github.com/Mullassery/prismnote/releases/download/${VERSION}/prismnote-x86_64-unknown-linux-gnu.tar.gz\"|" Formula/prismnote.rb
+          sed -i "s|sha256 \"PLACEHOLDER_X86_64_LINUX_SHA256\"|sha256 \"${X86_LINUX}\"|" Formula/prismnote.rb
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "chore: update Homebrew formula to ${{ steps.version.outputs.version }}"
+          title: "chore: update Homebrew formula to ${{ steps.version.outputs.version }}"
+          body: |
+            Automated Homebrew formula update for ${{ steps.version.outputs.version }}
+
+            - Updated download URLs
+            - Updated SHA256 checksums
+            - Ready to merge and publish
+
+            Run tests with:
+            ```bash
+            brew install --build-from-source ./Formula/prismnote.rb
+            prismnote --version
+            ```
+          branch: update-formula-${{ steps.version.outputs.version }}
+          delete-branch: true

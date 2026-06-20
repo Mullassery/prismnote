@@ -107,6 +107,13 @@ Key Features Visible in UI:
 
 Choose your installation method:
 
+**Homebrew (macOS/Linux)**
+```bash
+brew tap Mullassery/prismnote
+brew install prismnote
+prismnote
+```
+
 **pip (Recommended)**
 ```bash
 pip install prismnote
@@ -169,6 +176,75 @@ The interface features a modern, responsive design with:
 - WCAG 2.1 AA accessibility compliance
 - Smooth animations and micro-interactions
 - Dark mode that reduces eye strain in low-light environments
+
+---
+
+## Homebrew Installation (macOS/Linux)
+
+PrismNote is available via a custom Homebrew tap for easy installation on macOS and Linux.
+
+### Install via Homebrew
+
+```bash
+# Add the custom Homebrew tap
+brew tap Mullassery/prismnote
+
+# Install PrismNote
+brew install prismnote
+
+# Verify installation
+prismnote --version
+```
+
+### Usage
+
+```bash
+# Start server (default port 8000)
+prismnote
+
+# Custom port
+prismnote --port 3000
+
+# Custom data directory
+prismnote --data ~/my-notebooks
+
+# Enable debug logging
+prismnote --log-level debug
+```
+
+### Shell Completions
+
+Bash, Zsh, and Fish shell completions are automatically installed:
+
+```bash
+# Bash/Zsh - Type and press TAB
+prismnote --<TAB>
+
+# View available options
+prismnote --help
+```
+
+### Update
+
+```bash
+# Check for updates
+brew outdated prismnote
+
+# Upgrade to latest
+brew upgrade prismnote
+```
+
+### Uninstall
+
+```bash
+# Remove PrismNote
+brew uninstall prismnote
+
+# Remove the tap
+brew untap Mullassery/prismnote
+```
+
+For more information, see [Homebrew Installation Guide](homebrew/README.md)
 
 ---
 

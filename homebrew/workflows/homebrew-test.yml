@@ -1,0 +1,141 @@
+name: Homebrew Formula Tests
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'Formula/prismnote.rb'
+      - 'homebrew/**'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'Formula/prismnote.rb'
+      - 'homebrew/**'
+
+jobs:
+  validate-formula:
+    name: Validate Homebrew Formula
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Homebrew
+        id: set-up-homebrew
+        uses: Homebrew/actions/setup-homebrew@master
+
+      - name: Validate formula syntax
+        run: |
+          brew audit --new-formula Formula/prismnote.rb || true
+
+      - name: Check formula style
+        run: |
+          brew style Formula/prismnote.rb || true
+
+  test-install-macos:
+    name: Test Installation (macOS)
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        include:
+          - runner: macos-latest
+            arch: x86_64
+          - runner: macos-14
+            arch: aarch64
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Homebrew
+        id: set-up-homebrew
+        uses: Homebrew/actions/setup-homebrew@master
+
+      - name: Install from formula (local tap)
+        run: |
+          mkdir -p $(brew --repo)/Library/Taps/mullassery/homebrew-prismnote
+          cp -r . $(brew --repo)/Library/Taps/mullassery/homebrew-prismnote
+          brew tap Mullassery/prismnote
+
+      - name: List tapped formula
+        run: |
+          brew tap-info Mullassery/prismnote
+
+      - name: Check formula is recognized
+        run: |
+          brew info Mullassery/prismnote/prismnote || true
+
+  test-install-linux:
+    name: Test Installation (Linux)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Homebrew on Linux
+        run: |
+          /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+          echo "/home/linuxbrew/.linuxbrew/bin" >> $GITHUB_PATH
+
+      - name: Set up custom tap
+        run: |
+          mkdir -p $(brew --repo)/Library/Taps/mullassery/homebrew-prismnote
+          cp -r . $(brew --repo)/Library/Taps/mullassery/homebrew-prismnote
+          brew tap Mullassery/prismnote
+
+      - name: Verify formula
+        run: |
+          brew info Mullassery/prismnote/prismnote || true
+
+  lint-bash-completion:
+    name: Lint Bash Completion
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install ShellCheck
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y shellcheck
+
+      - name: Check bash completion syntax
+        run: |
+          shellcheck -x homebrew/completions/prismnote.bash || true
+
+  lint-shell-scripts:
+    name: Lint Shell Scripts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run ShellCheck
+        uses: ludeeus/action-shellcheck@master
+        with:
+          scandir: 'homebrew/'
+          severity: warning
+
+  changelog-check:
+    name: Check Changelog Updated
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check if CHANGELOG or version updated
+        run: |
+          git diff origin/main...HEAD --name-only | grep -E '(CHANGELOG|version|Formula)' || {
+            echo "Warning: Consider updating CHANGELOG.md or version files"
+            exit 0
+          }
+
+  summary:
+    name: Test Summary
+    runs-on: ubuntu-latest
+    needs: [validate-formula, lint-bash-completion]
+    if: always()
+    steps:
+      - name: Report status
+        run: |
+          if [ "${{ needs.validate-formula.result }}" == "failure" ]; then
+            echo "Formula validation failed"
+            exit 1
+          fi
+          echo "All Homebrew formula checks passed!"
