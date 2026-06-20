@@ -1,0 +1,79 @@
+[build-system]
+requires = ["maturin>=1.0,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "prismnote"
+version = "0.3.0"
+description = "Modern, open-source Jupyter-compatible data science notebook with Rust performance"
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "Georgi Mammen Mullassery", email = "mullassery@gmail.com" }]
+requires-python = ">=3.8"
+keywords = ["notebook", "jupyter", "data-science", "sql", "python", "rust"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Rust",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Text Editors :: Integrated Development Environments",
+    "Environment :: Web Environment",
+]
+dependencies = [
+    "ipykernel>=6.0",
+    "jupyter>=1.0",
+]
+
+[project.optional-dependencies]
+# Database support
+sql = ["psycopg2-binary>=2.9", "pymysql>=1.0"]
+postgres = ["psycopg2-binary>=2.9"]
+mysql = ["pymysql>=1.0"]
+
+# Cloud warehouses
+cloud = [
+    "snowflake-connector-python>=3.0",
+    "google-cloud-bigquery>=3.0",
+    "amazon-redshift-python-driver>=1.0",
+    "databricks-sql-connector>=1.0",
+]
+
+# AI features
+ai = ["anthropic>=0.7"]
+openai = ["openai>=1.0"]
+
+# Big data
+spark = ["pyspark>=3.0", "pyarrow>=10"]
+
+# Development
+dev = [
+    "pytest>=7.0",
+    "black>=22.0",
+    "ruff>=0.1.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/Mullassery/prismnote"
+Repository = "https://github.com/Mullassery/prismnote"
+Documentation = "https://github.com/Mullassery/prismnote#readme"
+"Bug Tracker" = "https://github.com/Mullassery/prismnote/issues"
+
+[project.scripts]
+prismnote = "prismnote._cli:main"
+
+[tool.maturin]
+manifest-path = "crates/server/Cargo.toml"
+python-source = "python"
+module-name = "prismnote._prismnote"
+features = ["pyo3/extension-module"]
+profile = "release"
+strip = true

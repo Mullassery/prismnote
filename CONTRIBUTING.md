@@ -4,7 +4,7 @@ Welcome! We're excited you want to contribute to PrismNote. This document provid
 
 ## Code of Conduct
 
-This project adheres to the Contributor Covenant [Code of Conduct](./CODE_OF_CONDUCT.md). By participating, you are expected to uphold this code.
+This project adheres to the Contributor Covenant Code of Conduct. All contributors must be respectful and inclusive.
 
 ## Ways to Contribute
 
@@ -195,6 +195,22 @@ Related to #456
 - [ ] Commit messages are clear
 ```
 
+## Implementation Notes
+
+### Before Building Features
+1. Check `ARCHITECTURE.md` to see if the feature is:
+   - ✅ Already implemented (ready to use)
+   - 🟡 Framework-only (has code structure but not integrated)
+   - ❌ Not started (needs full implementation)
+
+2. For framework-only features, you need to:
+   - Complete the backend implementation
+   - Create/connect frontend components
+   - Wire API endpoints to handlers
+   - Add end-to-end testing
+
+3. See `ARCHITECTURE.md` for detailed feature maturity status
+
 ## Testing
 
 ### Running Tests
@@ -202,7 +218,7 @@ Related to #456
 # Rust tests
 cargo test
 
-# Frontend tests
+# Frontend tests (when ready)
 npm run test
 
 # Integration tests
@@ -214,6 +230,7 @@ cargo test --release
 - Place integration tests in `tests/` directory
 - Aim for >70% code coverage on new code
 - Test happy path AND error cases
+- For framework-only features, test that code at least compiles
 
 ## Documentation
 
@@ -225,12 +242,14 @@ cargo test --release
 - Include links to related issues
 
 ### Documentation Files
-- `README.md` - Project overview
-- `QUICK_START.md` - 2-minute setup
-- `GETTING_STARTED.md` - Full development guide
-- `AI_INTEGRATION.md` - AI provider setup
-- `DATABASE_CONNECTORS.md` - Database setup
-- `COMPARISON_OSS_NOTEBOOKS.md` - Comparison with alternatives
+- `README.md` - Project overview and quick start
+- `ARCHITECTURE.md` - Implementation status (what's built vs. framework-only)
+- `SQL_EXECUTION.md` - SQL cell usage and setup
+- `CLOUD_WAREHOUSES.md` - Cloud data warehouse integration
+- `SPARK_MANAGEMENT.md` - Spark configuration
+- `ENTERPRISE_AUTHENTICATION.md` - Auth provider setup
+- `AI_TRAINING_FINETUNING.md` - Model fine-tuning with RunPod
+- See `docs/archive/` for older planning documents
 
 ## Release Process
 
