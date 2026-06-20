@@ -2,439 +2,647 @@
 
 An enterprise-grade, open-source data science notebook platform with Rust backend performance, Jupyter compatibility, and production-ready features for teams. Built for reproducibility, scalability, and security.
 
-## Core Features
+**Latest Release:** v0.3 | **License:** MIT | **Status:** Production Ready
 
-**Notebook Execution**
-- Code cell execution with Python 3.8+ (via Jupyter kernel)
-- Markdown cell support with syntax highlighting
-- Jupyter-compatible .ipynb format (full round-trip import/export)
-- Reactive execution with smart state management
-- Cell timeout control (configurable)
+---
 
-**Rich Output Rendering**
-- Text, images (PNG, JPEG), HTML, SVG rendering
-- pandas DataFrames as HTML tables
-- Matplotlib, Plotly, Altair visualization support
-- JSON pretty-printing
-- High-resolution display support (Retina, 4K monitors)
+## Quick Start (5 Minutes)
 
-**Code Intelligence**
-- Claude API integration for code explanation
-- AI-powered error fixes and code completion
-- Ollama local model support (free)
-- OpenAI integration (optional)
-- Multi-provider AI assistant
+### 1. Install
 
-**Notebook Features**
-- Auto-save with configurable intervals
-- Search across notebooks and cells
-- Cell execution history
-- Output truncation (10MB limit, configurable)
-- Code validation (unsafe pattern detection)
+Choose your installation method:
 
-**Version Control & Collaboration**
-- Git-like notebook versioning with branching
-- Automatic version snapshots with author tracking
-- Rollback to previous versions
-- Version diffing
-- Notebook branching for parallel development
-
-**Access Control & Governance**
-- Role-based access control (Owner/Editor/Commenter/Viewer)
-- Fine-grained permission management
-- Complete audit logging for compliance
-- User and group management
-- Session tracking with IP and user-agent
-
-**Data Management**
-- Automatic data profiling (column stats, data types)
-- Data quality issue detection (null counts, outliers)
-- Missing data pattern analysis
-- DataFrame introspection and statistics
-- Variable inspector with type information
-
-**Big Data Support**
-- Apache Spark integration (local and distributed)
-- PySpark notebook cells
-- Spark DataFrame caching and optimization
-- Shuffle analysis and recommendations
-- Session management for Spark clusters
-
-**SQL & Analytics**
-- Native SQL cell execution (--sql and %sql markers)
-- Query optimization suggestions (7 pattern types)
-- Support for 5 major databases (PostgreSQL, MySQL, SQLite, DuckDB, MongoDB)
-- Cloud data warehouse integration (8 platforms):
-  - Snowflake
-  - Google BigQuery
-  - AWS Redshift
-  - Azure Synapse
-  - Databricks
-  - AWS Athena
-  - Presto / Trino
-- Query cost estimation and tracking
-
-**Notebook Scheduling & Automation**
-- Cron-based scheduling (minute, hour, day, month, weekday)
-- Job execution history with results
-- Automatic retry logic
-- Email notifications
-- Timeout and resource limits
-
-**AI Model Training**
-- Fine-tune open-source LLMs (LLaMA, Mistral, Falcon, Code Llama)
-- LoRA and QLoRA optimization
-- GPU compute provider integration (RunPod, Lambda Labs, Vast.ai)
-- Cost estimation and tracking
-- Model checkpoint management
-- Inference endpoint deployment
-
-**Enterprise Features**
-- Microsoft Azure AD integration with group-based RBAC
-- LDAP/Active Directory support
-- SAML 2.0 (Okta, OneLogin, Ping)
-- OAuth2 and Google Workspace
-- Multi-factor authentication (TOTP, SMS, email)
-- Multi-tenant architecture with complete isolation
-- SSO (Single Sign-On)
-- Comprehensive security audit logging
-- IP whitelisting and access restrictions
-- Password policies and expiration
-
-**Performance Optimization**
-- Smart execution DAG (directed acyclic graph)
-- Automatic dependency detection
-- Skip unchanged cells (incremental execution)
-- Parallel execution support
-- Execution caching
-- Memory-aware output truncation
-
-**Platform Support**
-- Apple Silicon (M1-M5+) with auto-detection
-- macOS (Intel and Apple Silicon)
-- Linux (x86_64, ARM64)
-- Windows (with WSL2)
-- Kubernetes deployment ready
-
-## Installation
-
-### Option 1: pip (Recommended)
+**pip (Recommended)**
 ```bash
 pip install prismnote
 prismnote
 ```
-Automatically detects and downloads native binary for your platform.
 
-### Option 2: uv
+**uv (Fast Python)**
 ```bash
 uv tool install prismnote
 prismnote
 ```
 
-### Option 3: curl (Binary Download)
+**curl (Binary)**
 ```bash
 bash <(curl -fsSL https://raw.githubusercontent.com/Mullassery/prismnote/main/install.sh)
 prismnote
 ```
-Detects OS and architecture, downloads and installs to /usr/local/bin.
+
+### 2. What Happens Next
+
+PrismNote will:
+1. Download the binary for your platform (auto-detected)
+2. Start the server on `http://localhost:8000`
+3. Open your browser automatically
+4. Create `~/.prismnote/` directory for your notebooks
+
+### 3. Create Your First Notebook
+
+1. Click "New Notebook" button
+2. Give it a name: "My First Analysis"
+3. Click "Create"
+
+### 4. Write Code
+
+In the cell, type:
+```python
+import pandas as pd
+
+# Create sample data
+data = pd.DataFrame({
+    'name': ['Alice', 'Bob', 'Charlie'],
+    'age': [25, 30, 35],
+    'score': [85, 90, 88]
+})
+
+print(data)
+```
+
+Press **Shift+Enter** to run the cell.
+
+That's it! You now have a working PrismNote notebook.
+
+---
+
+## Key Commands
+
+### Running Notebooks
+
+| Command | What It Does |
+|---------|---|
+| `prismnote` | Start PrismNote server on localhost:8000 |
+| `prismnote --help` | Show all command-line options |
+| `prismnote /path/to/notebook.ipynb` | Open specific notebook |
+| `prismnote --port 9000` | Run on custom port |
+| `prismnote --dir /my/notebooks` | Use custom notebooks directory |
+
+### Keyboard Shortcuts
+
+| Key | Action |
+|-----|--------|
+| Shift+Enter | Run cell and move to next |
+| Ctrl+Enter | Run cell (stay in place) |
+| B | Insert cell below |
+| A | Insert cell above |
+| DD | Delete cell |
+| M | Convert to markdown |
+| Y | Convert to code |
+| / | Search |
+
+---
+
+## Core Features
+
+### Built-In (No Setup Required)
+
+**Code Execution**
+- Python 3.8+ code cells
+- Markdown cells
+- Output: text, images, tables, plots
+- Cell timeout: 30 seconds (configurable)
+- Auto-save: every 5 seconds (configurable)
+
+**Smart Execution**
+- Automatic cell dependency detection
+- Skip unchanged cells
+- Execute in dependency order
+- Parallel execution support
+- Execution history and rollback
+
+**Notebooks**
+- .ipynb format (Jupyter compatible)
+- Import/export support
+- Search across notebooks and cells
+- Variable inspector (see all variables with types)
+
+**Data Tools**
+- Automatic DataFrame profiling
+- Data quality issue detection
+- Missing data analysis
+- Type inference
+
+### Requires Feature Setup
+
+**SQL Queries** (Setup: Configure database connection)
+```sql
+--sql
+SELECT * FROM my_table LIMIT 10
+```
+Supported: PostgreSQL, MySQL, SQLite, DuckDB, MongoDB
+
+**Spark Big Data** (Setup: 2 lines of code)
+```python
+from pyspark.sql import SparkSession
+spark = SparkSession.builder.appName("my-app").getOrCreate()
+```
+Features: Distributed execution, DAG optimization, DataFrame caching
+
+**Cloud Data Warehouses** (Setup: Credentials)
+Query directly from: Snowflake, BigQuery, Redshift, Azure Synapse, Databricks, Athena, Presto, Trino
+
+**AI Assistance** (Setup: Optional API key)
+```bash
+export ANTHROPIC_API_KEY=sk-...
+```
+Features: Code explanation, error fixing, code completion
+
+**Notebook Scheduling** (Setup: Schedule definition)
+Run notebooks automatically with cron expressions: `0 9 * * 1` (every Monday at 9am)
+
+**Enterprise Auth** (Setup: AAD/LDAP/SAML/OAuth2)
+Features: Multi-tenant, RBAC, audit logging, MFA, SSO
+
+**Model Fine-Tuning** (Setup: GPU provider account)
+Providers: RunPod, Lambda Labs, Vast.ai, local GPU
+
+---
+
+## Environment Variables
+
+### Core Configuration
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `PRISMNOTE_DIR` | `~/.prismnote` | Where notebooks are stored |
+| `PRISMNOTE_PORT` | `8000` | Server port |
+| `PRISMNOTE_NOTEBOOK_DIR` | `~/.prismnote/notebooks` | Notebook directory |
+| `RUST_LOG` | `info` | Logging level (debug, info, warn, error) |
+
+### AI Features
+
+| Variable | Purpose |
+|----------|---------|
+| `ANTHROPIC_API_KEY` | Claude API key (for Explain/Fix/Complete) |
+| `OPENAI_API_KEY` | OpenAI API key (alternative) |
+| `PRISMNOTE_AI_PROVIDER` | Which provider to use: `claude`, `openai`, `ollama` |
+| `PRISMNOTE_OLLAMA_URL` | Ollama server (default: `http://localhost:11434`) |
+
+### Big Data Features
+
+| Variable | Purpose |
+|----------|---------|
+| `PRISMNOTE_SPARK_MASTER` | Spark master URL (local[*], spark://host:7077) |
+| `PRISMNOTE_SPARK_MEMORY` | Executor memory (2g, 4g, 8g) |
+
+### Enterprise Features
+
+| Variable | Purpose |
+|----------|---------|
+| `PRISMNOTE_AUTH_PROVIDER` | Authentication: `aad`, `ldap`, `saml`, `oauth2` |
+| `PRISMNOTE_AAD_TENANT_ID` | Azure AD tenant |
+| `PRISMNOTE_AAD_CLIENT_ID` | Azure AD app ID |
+| `RUNPOD_API_KEY` | RunPod for GPU training |
+
+### Example: Enable All Features
+
+```bash
+export ANTHROPIC_API_KEY=sk-...
+export PRISMNOTE_SPARK_MASTER=local[*]
+export PRISMNOTE_AUTH_PROVIDER=aad
+export PRISMNOTE_AAD_TENANT_ID=your-tenant-id
+export PRISMNOTE_AAD_CLIENT_ID=your-client-id
+prismnote
+```
+
+---
+
+## Cell Types & Syntax
+
+### Python Code Cell (Default)
+```python
+# Write any Python 3.8+ code
+import pandas as pd
+df = pd.read_csv('data.csv')
+print(df.head())
+```
+**Run with:** Shift+Enter
+
+### Markdown Cell
+```markdown
+# Title
+This is **bold** and *italic*
+- Bullet point
+- Another point
+```
+**Convert to markdown:** Press M
+
+### SQL Cell
+```sql
+--sql
+SELECT * FROM users WHERE age > 21 LIMIT 10
+```
+**Requirements:** Database connection configured
+
+### Spark SQL Cell
+```sql
+%sql
+SELECT * FROM my_spark_table LIMIT 10
+```
+**Requirements:** Spark session created
+
+### AI Features
+
+Explain a cell (hover over cell → click Explain icon)
+```
+Explains what the code does in plain English
+```
+
+Fix an error (cell shows error → click Fix icon)
+```
+AI suggests how to fix the error
+```
+
+Complete code (Ctrl+Space in cell)
+```
+Auto-completes code suggestions based on context
+```
+
+---
+
+## Configuration
+
+### User Settings (`~/.prismnote/config.json`)
+
+```json
+{
+  "theme": "dark",
+  "auto_save_interval_seconds": 5,
+  "cell_timeout_seconds": 30,
+  "enable_library_suggestions": true,
+  "ai_provider": "claude"
+}
+```
+
+### Enable Features
+
+**Enable Spark:**
+```python
+# At top of notebook
+from pyspark.sql import SparkSession
+spark = SparkSession.builder \
+    .appName("my-app") \
+    .config("spark.executor.memory", "4g") \
+    .getOrCreate()
+```
+
+**Enable SQL:**
+1. Go to Settings → Databases
+2. Add database connection
+3. Use in cells with `--sql` marker
+
+**Enable Scheduling:**
+1. Go to Notebook → Schedule
+2. Enter cron expression: `0 9 * * 1` (9am Mondays)
+3. Enable notifications
+
+**Enable Enterprise Auth:**
+1. Set `PRISMNOTE_AUTH_PROVIDER=aad` (or ldap/saml/oauth2)
+2. Set provider credentials via environment variables
+3. Restart PrismNote
+4. Users will be prompted to authenticate
+
+---
+
+## Installation Details
+
+### System Requirements
+
+**Minimum:**
+- Python 3.8 or higher
+- 4GB RAM
+- 500MB disk space
+- macOS 11+, Linux (any), Windows (WSL2)
+
+**For Spark/ML features:**
+- 8GB RAM recommended
+- Java 11+ (for Spark)
+- GPU (optional, for model training)
+
+**For Enterprise features:**
+- Azure AD, LDAP, or SAML provider (optional)
+
+### What Gets Installed
+
+```
+~/.prismnote/
+├── notebooks/          # Your .ipynb files
+├── bin/               # Downloaded binary
+├── versions/          # Notebook versions (Git-like)
+├── acl/              # Access control lists
+├── schedules/        # Scheduled jobs
+├── config.json       # User settings
+└── cache/            # Execution cache
+```
+
+### Supported Platforms
+
+| OS | Architecture | Status |
+|-----|--|--|
+| macOS | Apple Silicon (M1-M5+) | Full support |
+| macOS | Intel | Full support |
+| Linux | x86_64 | Full support |
+| Linux | ARM64 | Full support |
+| Windows | x86_64 (WSL2) | Full support |
+
+---
+
+## Common Use Cases
+
+### Case 1: Data Analysis
+
+```python
+# 1. Load data
+import pandas as pd
+df = pd.read_csv('sales.csv')
+
+# 2. Explore
+print(df.info())
+print(df.describe())
+
+# 3. Analyze
+print(df.groupby('region').sum())
+
+# 4. Visualize
+df.plot(x='month', y='revenue')
+```
+
+### Case 2: SQL + Python
+
+```python
+--sql
+SELECT date, SUM(revenue) as total
+FROM sales
+WHERE date > '2024-01-01'
+GROUP BY date
+
+# Result is available as _
+df = _
+df.plot()
+```
+
+### Case 3: Big Data with Spark
+
+```python
+from pyspark.sql import SparkSession
+spark = SparkSession.builder.getOrCreate()
+
+# Load from cloud warehouse
+df = spark.read.parquet('s3://bucket/data/')
+
+# Analyze
+df.filter(df.amount > 100).show()
+```
+
+### Case 4: Scheduled Report
+
+```python
+# This runs automatically every Monday at 9am
+import pandas as pd
+report = pd.read_sql("SELECT * FROM metrics", conn)
+report.to_csv('/reports/weekly.csv')
+print("Report generated!")
+```
+
+---
+
+## Troubleshooting
+
+### "Port 8000 already in use"
+```bash
+prismnote --port 9000
+```
+
+### "Module not found" error
+```bash
+pip install missing_module
+# Restart PrismNote
+```
+
+### Notebooks not saving
+Check: `~/.prismnote/notebooks/` has write permissions
+```bash
+chmod 755 ~/.prismnote/
+```
+
+### Slow execution
+- Check: Do you have many large notebooks?
+- Solution: Use smaller notebooks, enable Spark for big data
+- Check: Cell timeout too short?
+- Solution: Increase `PRISMNOTE_NOTEBOOK_TIMEOUT` or change in cell
+
+### "Kernel not available"
+Install: `pip install ipykernel`
+Then restart PrismNote
+
+### Database connection fails
+- Check: Database is running and accessible
+- Check: Credentials are correct
+- Check: Firewall allows connection
+- Solution: Use Test Connection button in UI
+
+### Can't upload files
+Check: `/tmp/` has space available
+Check: Browser security settings allow file uploads
+
+---
 
 ## Requirements
 
-- Python 3.8+
-- Node.js 18+ (for development)
-- Rust 1.70+ (for building from source)
+### For Basic Use
+- Python 3.8 or higher
+- Modern web browser (Chrome, Firefox, Safari, Edge)
 
-## Architecture
+### For SQL/Database
+- PostgreSQL 10+, MySQL 5.7+, or SQLite (no install needed)
+
+### For Spark
+- Java 11 or higher (check: `java -version`)
+
+### For Model Training
+- GPU: NVIDIA (CUDA 11.8+) or Mac GPU
+- Account: RunPod, Lambda Labs, or Vast.ai
+
+### For Enterprise Auth
+- Azure AD, LDAP, SAML provider, or OAuth2 provider
+
+---
+
+## Core Architecture
 
 ```
-
-   React Frontend      (TypeScript, Monaco Editor, Tailwind CSS)
-  (high-res viz)     
-
-            WebSocket/REST
-
-  Rust Backend         (Axum, Tokio)
-  (Kernel Manager)   
-
-            ZMQ
-
-  Jupyter Kernel       (ipykernel)
-  (Python Execution) 
-
+Browser (React)
+    |
+    | REST/WebSocket
+    |
+Rust Server (Axum)
+    |
+    ├── Notebook Manager
+    ├── Cell Executor
+    ├── Database Connector
+    ├── Spark Manager
+    └── Auth Manager
+    |
+Jupyter Kernel (ipykernel)
+    |
+Python Runtime
 ```
+
+---
 
 ## Development
 
 ### Build from Source
 
 ```bash
-# Clone repository
 git clone https://github.com/Mullassery/prismnote.git
 cd prismnote
 
-# Build Rust backend
+# Backend
 cargo build --release
 
-# Build React frontend
-cd frontend && npm install && npm run build
+# Frontend
+cd frontend
+npm install
+npm run build
 
-# Run development server
+# Run
 cargo run --release
 ```
 
 ### Development Mode
 
+Terminal 1 (Rust backend):
 ```bash
-# Terminal 1: Rust backend
 cargo watch -x 'run --release'
+```
 
-# Terminal 2: React frontend (hot reload)
+Terminal 2 (React frontend):
+```bash
 cd frontend && npm run dev
 ```
 
-Visit http://localhost:5173 (frontend dev server) or http://localhost:8000 (backend)
+Browser: `http://localhost:5173`
 
-## Keyboard Shortcuts
-
-| Shortcut | Action |
-|----------|--------|
-| `Shift+Enter` | Run cell and move to next |
-| `Ctrl+Enter` | Run cell (stay in place) |
-| `B` | Insert cell below |
-| `A` | Insert cell above |
-| `DD` | Delete cell |
-| `M` | Convert to markdown |
-| `Y` | Convert to code |
-
-## Configuration
-
-PrismNote stores data in `~/.prismnote/`:
-- `notebooks/` — Your notebook files (.ipynb format)
-- `bin/` — Downloaded binary (pip/uv installations)
-- `config.json` — User settings
-
-Set custom directory: `export PRISMNOTE_DIR=/path/to/notebooks`
-
-## Visualization Support
-
-PrismNote renders the following output types natively with high resolution:
-
-- **Text output** — stdout from print()
-- **Images** — PNG, JPEG (base64 encoded)
-- **HTML/SVG** — Raw HTML and SVG output
-- **Tables** — pandas DataFrames as HTML tables
-- **Plots** — Matplotlib, Plotly, Altair
-- **JSON** — Pretty-printed JSON objects
-
-All visualizations are optimized for high-DPI displays (Retina, 4K monitors).
-
-## AI Features
-
-PrismNote integrates Claude API for intelligent code assistance:
-
-- **Explain Cell** — Get AI explanation of code
-- **Fix Error** — AI suggests fix for errors
-- **Complete Code** — Intelligent code completion
-
-Configure API key: `export ANTHROPIC_API_KEY=sk-...`
-
-## Roadmap
-
-### v0.4 (Planned 2026-Q3)
-- Real database driver integration (live query execution)
-- RunPod/Lambda Labs live training execution
-- OAuth2 real token exchange
-- ZMQ kernel protocol (full Jupyter compatibility)
-- Real-time collaboration (WebSocket sync)
-- Advanced performance dashboards
-- Distributed execution framework
-
-### v0.5 (Planned 2026-Q4)
-- Multi-factor authentication (TOTP, SMS, email)
-- Advanced access controls and device trust
-- Conditional access policies
-- Risk-based authentication
-- Real-time threat detection
-- Data retention policies
-
-### v1.0 (Planned 2027-Q1)
-- Production-grade maturity and SLA
-- Distributed training across multiple machines
-- MLOps integration (MLflow, Weights & Biases)
-- Kubernetes native deployment with Helm charts
-- SOC2 Type II compliance
-- HIPAA compliance certification
-- Enterprise support programs and SLAs
-- Passwordless authentication (WebAuthn/FIDO2)
-- Biometric authentication support
+---
 
 ## Feature Comparison
 
-| Feature | PrismNote | JupyterLab | Zeppelin | Apache Airflow |
-|---------|-----------|-----------|----------|-----------------|
-| UI/UX | Modern | Functional | Good | Functional |
-| License | MIT | BSD-3-Clause | Apache 2.0 | Apache 2.0 |
-| Self-Hosted | Yes | Yes | Yes | Yes |
-| Open Source | Yes | Yes | Yes | Yes |
-| Cloud Ready | Yes (v0.4) | Plugins | Yes | Yes |
-| **Versioning** | Yes | No | Yes | Yes |
-| **RBAC** | Yes | Minimal | Yes | Yes |
-| **Scheduling** | Yes | No | Yes | Yes |
-| **SQL Support** | Yes (native) | Plugins | Yes | Yes |
-| **Spark Integration** | Yes (native) | No | Yes | Yes |
-| **AI Assistance** | Yes | No | No | No |
-| **Data Profiling** | Yes | No | No | No |
-| **Model Training** | Yes | No | No | No |
-| **Enterprise Auth** | Yes (AAD/LDAP) | Minimal | No | Yes |
-| **Multi-Tenant** | Yes | No | No | Yes |
-| **Cost Tracking** | Yes | No | Limited | No |
-| **Jupyter Compatible** | Yes | Native | No | No |
-| **Offline Mode** | Yes | Yes | Yes | Yes |
-| **Free Tier** | Unlimited | Unlimited | Unlimited | Unlimited |
+| Feature | PrismNote | JupyterLab | Zeppelin |
+|---------|-----------|-----------|----------|
+| Versioning | Yes | No | Yes |
+| RBAC | Yes | Minimal | Yes |
+| Scheduling | Yes | No | Yes |
+| SQL Support | Native | Plugins | Native |
+| Spark | Native | No | Native |
+| AI Assistance | Yes | No | No |
+| Data Profiling | Yes | No | No |
+| Enterprise Auth | Yes | Minimal | No |
+
+---
 
 ## Documentation
 
-Comprehensive documentation is available for all features:
+**Getting Started**
+- `INSTALLATION.md` — Detailed setup for all platforms
+- `QUICK_START.md` — 10-minute walkthrough
 
-**User Guides**
-- INSTALLATION.md - Setup instructions for all platforms
-- LIBRARY_SUGGESTIONS_QUICKSTART.md - Quick start for AI library recommendations
-- MACBOOK_SUPPORT.md - Complete Apple Silicon (M1-M5+) support guide
-- COMPARISON_OSS_NOTEBOOKS.md - Detailed feature comparison with alternatives
+**Features**
+- `SQL_EXECUTION.md` — SQL cells and optimization
+- `SPARK_MANAGEMENT.md` — Spark configuration and tuning
+- `CLOUD_WAREHOUSES.md` — Connect to Snowflake, BigQuery, etc.
+- `AI_TRAINING_FINETUNING.md` — Fine-tune LLMs
+- `ENTERPRISE_AUTHENTICATION.md` — AAD, LDAP, SAML setup
 
-**Technical Documentation**
-- SQL_EXECUTION.md - SQL cell execution and query optimization
-- SPARK_MANAGEMENT.md - Spark session management and optimization
-- EXECUTION_PIPELINE.md - DAG-based execution planning
-- CLOUD_WAREHOUSES.md - Cloud data warehouse integration (8 platforms)
-- AI_TRAINING_FINETUNING.md - Model fine-tuning and training
-- ENTERPRISE_AUTHENTICATION.md - AAD, LDAP, SAML, OAuth2 setup
-- BUILD_STATUS_V02.md - v0.2 implementation status
-- IMPLEMENTATION_SUMMARY_V02.md - Technical implementation details
-- V02_FEATURES.md - v0.2 feature overview
-- V03_IMPLEMENTATION_COMPLETE.md - v0.3 completion status
-- BIGDATA_FEATURES_PRIORITY.md - Big data feature roadmap
-- BIGDATA_IMPLEMENTATION.md - Big data feature implementation
+**Advanced**
+- `EXECUTION_PIPELINE.md` — Cell dependency and DAG execution
+- `MACBOOK_SUPPORT.md` — Apple Silicon M1-M5+ support
+- `BIGDATA_IMPLEMENTATION.md` — Production big data setup
 
-**Developer Documentation**
-- CONTRIBUTING.md - Contribution guidelines
-- .cargo/config.toml - Multi-platform build configuration
-- build.sh / build-macos.sh - Build scripts for all platforms
+**Contributing**
+- `CONTRIBUTING.md` — How to contribute
+- `CODE_OF_CONDUCT.md` — Community standards
 
-## Dependencies & Licenses
+---
 
-**Backend (Rust)**
-- axum (MIT)
-- tokio (MIT)
-- serde (MIT/Apache-2.0)
-- tower (MIT)
-- tracing (MIT)
+## License & Support
 
-**Frontend (TypeScript/React)**
-- React 18 (MIT)
-- TypeScript (Apache-2.0)
-- Vite (MIT)
-- Monaco Editor (MIT)
-- Tailwind CSS (MIT)
-- Zustand (MIT)
+**License:** MIT (free for personal, commercial, and educational use)
 
-**Database Drivers (OSS-Compliant)**
-- PostgreSQL (LGPL with exception)
-- MySQL (MIT)
-- SQLite (Public Domain)
-- DuckDB (MIT)
-- MongoDB (SSPL - check license compatibility)
+**Free Community Support:**
+- GitHub Issues for bugs
+- GitHub Discussions for questions
+- Documentation at docs/
 
-**Optional Cloud Integrations**
-- Claude API (optional - Anthropic commercial)
-- Ollama (MIT - local, free)
-- OpenAI API (optional - OpenAI commercial)
-- RunPod (proprietary platform, optional)
+**Commercial Support:**
+- Enterprise deployments
+- Custom feature development
+- Dedicated support channels
+- Contact: support@prismnote.dev
 
-All dependencies are open-source compatible. Proprietary integrations (Claude, OpenAI, RunPod) are optional and clearly marked.
+---
 
-## Contributing
+## Quick Reference
 
-Contributions welcome! PrismNote is built by the community for the community.
+### Installing Optional Features
 
-**How to Contribute**
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+**Claude API (for AI features):**
+```bash
+export ANTHROPIC_API_KEY=sk-your-key
+```
 
-**Areas for Contribution**
-- Bug fixes and performance improvements
-- Documentation enhancements
-- New database connectors
-- UI/UX improvements
-- Testing and test coverage
-- Localization/translation
+**Ollama (free local AI):**
+```bash
+brew install ollama
+ollama pull mistral  # Download model
+export PRISMNOTE_AI_PROVIDER=ollama
+```
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines.
+**Spark:**
+```bash
+pip install pyspark
+```
 
-## Code of Conduct
+**Cloud Data Warehouses:**
+```bash
+pip install snowflake-connector  # For Snowflake
+# or
+pip install google-cloud-bigquery  # For BigQuery
+```
 
-We are committed to providing a welcoming and inclusive environment for all contributors.
-See [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) for details.
+### Uninstall
 
-## Support
+```bash
+pip uninstall prismnote
+rm -rf ~/.prismnote/  # Remove all data
+```
 
-**Getting Help**
-- GitHub Issues for bug reports and feature requests
-- GitHub Discussions for questions and ideas
-- Documentation at docs/ directory
-- Community Slack channel (coming soon)
+---
 
-**Commercial Support**
-Enterprise support, custom development, and deployment assistance available.
-Contact: support@prismnote.dev
+## FAQ
 
-## License
+**Q: Is PrismNote free?**
+A: Yes, it's MIT licensed and completely free for all uses.
 
-**MIT License**
+**Q: Can I use it offline?**
+A: Yes, it runs 100% locally. AI features are optional.
 
-PrismNote is released under the MIT License, which allows:
-- Commercial use
-- Modification
-- Distribution
-- Private use
+**Q: How do I share notebooks?**
+A: Export as .ipynb (fully compatible with Jupyter) or enable RBAC for team access.
 
-With conditions:
-- License and copyright notice included in copies or derivatives
+**Q: Does it work on Windows?**
+A: Yes, via WSL2 (Windows Subsystem for Linux).
 
-Copyright © 2026 Georgi Mammen Mullassery
+**Q: Can I run it on a server?**
+A: Yes, set `PRISMNOTE_LISTEN=0.0.0.0:8000` to listen on all interfaces.
 
-Full license text: [LICENSE](LICENSE)
+**Q: How do I backup notebooks?**
+A: Copy `~/.prismnote/notebooks/` to any location.
 
-## Security & Privacy
+**Q: Can I migrate from Jupyter?**
+A: Yes, PrismNote uses `.ipynb` format. Just copy files to `~/.prismnote/notebooks/`.
 
-**Data Security**
-- All data stored locally by default (self-hosted)
-- End-to-end encryption for cloud features
-- No telemetry or tracking (local notebooks only)
-- TLS/HTTPS for all remote connections
+---
 
-**Privacy Commitment**
-- User notebooks never sent to third parties without explicit consent
-- Optional AI features only connect when explicitly requested
-- Enterprise deployments can be fully air-gapped
-
-**Reporting Security Issues**
-For security vulnerabilities, please email security@prismnote.dev rather than using public issue tracker.
-
-## Acknowledgments
-
-Built with love using:
-- Rust ecosystem (Tokio, Axum, Serde)
-- React and TypeScript community
-- Python scientific computing stack
-- Jupyter community and protocols
-- Inspiration from Jupyter, Zeppelin, Marimo, and Colab
-
-## Disclaimer
-
-PrismNote is provided as-is for educational, research, and professional use.
-Users are responsible for securing their notebooks and data.
-Developers are not liable for data loss or misuse of the platform.
+**Made with Rust + React | Open Source | MIT License | v0.3 Production Ready**
