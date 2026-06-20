@@ -1,6 +1,7 @@
 mod ai;
 mod api;
 mod cell_executor;
+mod cloud_warehouse;
 mod data_profiler;
 mod db;
 mod execution_pipeline;
@@ -97,6 +98,12 @@ async fn main() -> anyhow::Result<()> {
         .route("/sql/optimize", post(api::get_query_optimizations))
         .route("/spark/sessions", post(api::create_spark_session).get(api::list_spark_sessions))
         .route("/spark/sessions/:id", get(api::get_spark_session))
+        .route("/cloud-warehouses", post(api::create_cloud_warehouse_connection).get(api::list_cloud_warehouse_connections))
+        .route("/cloud-warehouses/:id/test", post(api::test_cloud_warehouse_connection))
+        .route("/cloud-warehouses/:id/query", post(api::execute_cloud_warehouse_query))
+        .route("/cloud-warehouses/:id/databases", get(api::get_cloud_warehouse_databases))
+        .route("/cloud-warehouses/:id/databases/:db/tables", get(api::get_cloud_warehouse_tables))
+        .route("/cloud-warehouses/:id/estimate-cost", post(api::estimate_cloud_query_cost))
         .with_state(state.clone());
 
     let ws_routes = Router::new()

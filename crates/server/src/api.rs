@@ -598,7 +598,7 @@ pub async fn execute_sql(
         StatusCode::OK,
         Json(json!({
             "html": result_html,
-            "optimizations": optimizations,
+            "optimizations": serde_json::to_value(&optimizations).unwrap_or(json!([])),
             "row_count": query_result.row_count,
             "execution_time_ms": query_result.execution_time_ms,
         })),
@@ -609,10 +609,12 @@ pub async fn get_query_optimizations(
     Json(req): Json<ExecuteSQLRequest>,
 ) -> Json<serde_json::Value> {
     let optimizations = crate::sql_executor::SQLExecutor::analyze_query(&req.query);
+    let high_priority = optimizations.iter().filter(|o| o.severity == "high").count();
+    let total_issues = optimizations.len();
     Json(json!({
-        "optimizations": optimizations,
-        "total_issues": optimizations.len(),
-        "high_priority": optimizations.iter().filter(|o| o.severity == "high").count(),
+        "optimizations": serde_json::to_value(&optimizations).unwrap_or(json!([])),
+        "total_issues": total_issues,
+        "high_priority": high_priority,
     }))
 }
 
@@ -701,4 +703,194 @@ pub async fn get_execution_statistics(
     let pipeline = crate::execution_pipeline::ExecutionPipeline::new();
     let stats = pipeline.get_execution_statistics(&notebook_id);
     Json(json!(stats))
+}
+
+// Cloud data warehouse management
+#[derive(Deserialize)]
+pub struct CreateCloudWarehouseConnectionRequest {
+    pub warehouse_type: String,
+    pub name: String,
+    pub host: Option<String>,
+    pub port: Option<u16>,
+    pub database: String,
+    pub username: String,
+    pub password: String,
+    pub region: Option<String>,
+    pub project_id: Option<String>,
+    pub account_id: Option<String>,
+}
+
+pub async fn create_cloud_warehouse_connection(
+    Json(req): Json<CreateCloudWarehouseConnectionRequest>,
+) -> (StatusCode, Json<serde_json::Value>) {
+    let warehouse_type = match req.warehouse_type.as_str() {
+        "snowflake" => crate::cloud_warehouse::CloudWarehouseType::Snowflake,
+        "bigquery" => crate::cloud_warehouse::CloudWarehouseType::BigQuery,
+        "redshift" => crate::cloud_warehouse::CloudWarehouseType::Redshift,
+        "azure_synapse" => crate::cloud_warehouse::CloudWarehouseType::AzureSynapse,
+        "databricks" => crate::cloud_warehouse::CloudWarehouseType::Databricks,
+        "athena" => crate::cloud_warehouse::CloudWarehouseType::Athena,
+        "presto" => crate::cloud_warehouse::CloudWarehouseType::Presto,
+        "trino" => crate::cloud_warehouse::CloudWarehouseType::Trino,
+        _ => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(json!({"error": "Unknown warehouse type"})),
+            )
+        }
+    };
+
+    let conn = crate::cloud_warehouse::CloudWarehouseConnection {
+        id: Uuid::new_v4().to_string(),
+        warehouse_type,
+        name: req.name,
+        host: req.host,
+        port: req.port,
+        database: req.database,
+        username: req.username,
+        password: req.password,
+        credentials: std::collections::HashMap::new(),
+        region: req.region,
+        project_id: req.project_id,
+        account_id: req.account_id,
+        warehouse_id: None,
+        timeout_seconds: 30,
+        created_at: chrono::Local::now().to_rfc3339(),
+    };
+
+    (StatusCode::CREATED, Json(json!(conn)))
+}
+
+pub async fn list_cloud_warehouse_connections() -> Json<serde_json::Value> {
+    // TODO: Load from ~/.prismnote/cloud_warehouses.json
+    Json(json!({
+        "connections": serde_json::json!([])
+    }))
+}
+
+pub async fn test_cloud_warehouse_connection(
+    Path(_id): Path<String>,
+    Json(req): Json<CreateCloudWarehouseConnectionRequest>,
+) -> (StatusCode, Json<serde_json::Value>) {
+    let warehouse_type = match req.warehouse_type.as_str() {
+        "snowflake" => crate::cloud_warehouse::CloudWarehouseType::Snowflake,
+        "bigquery" => crate::cloud_warehouse::CloudWarehouseType::BigQuery,
+        "redshift" => crate::cloud_warehouse::CloudWarehouseType::Redshift,
+        "azure_synapse" => crate::cloud_warehouse::CloudWarehouseType::AzureSynapse,
+        "databricks" => crate::cloud_warehouse::CloudWarehouseType::Databricks,
+        "athena" => crate::cloud_warehouse::CloudWarehouseType::Athena,
+        "presto" => crate::cloud_warehouse::CloudWarehouseType::Presto,
+        "trino" => crate::cloud_warehouse::CloudWarehouseType::Trino,
+        _ => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(json!({"error": "Unknown warehouse type"})),
+            )
+        }
+    };
+
+    let conn = crate::cloud_warehouse::CloudWarehouseConnection {
+        id: Uuid::new_v4().to_string(),
+        warehouse_type: warehouse_type.clone(),
+        name: req.name,
+        host: req.host,
+        port: req.port,
+        database: req.database,
+        username: req.username,
+        password: req.password,
+        credentials: std::collections::HashMap::new(),
+        region: req.region,
+        project_id: req.project_id,
+        account_id: req.account_id,
+        warehouse_id: None,
+        timeout_seconds: 30,
+        created_at: chrono::Local::now().to_rfc3339(),
+    };
+
+    let manager = crate::cloud_warehouse::CloudWarehouseManager::new();
+    match manager.test_connection(&conn).await {
+        Ok(message) => (
+            StatusCode::OK,
+            Json(json!({
+                "status": "ok",
+                "message": message,
+                "warehouse_type": format!("{:?}", warehouse_type)
+            })),
+        ),
+        Err(e) => (
+            StatusCode::BAD_REQUEST,
+            Json(json!({
+                "status": "error",
+                "message": e.to_string()
+            })),
+        ),
+    }
+}
+
+pub async fn execute_cloud_warehouse_query(
+    Path(_id): Path<String>,
+    Json(req): Json<ExecuteSQLRequest>,
+) -> (StatusCode, Json<serde_json::Value>) {
+    let manager = crate::cloud_warehouse::CloudWarehouseManager::new();
+
+    match manager.execute_query(&_id, &req.query).await {
+        Ok(result) => (
+            StatusCode::OK,
+            Json(json!({
+                "columns": result.columns,
+                "rows": result.rows,
+                "row_count": result.row_count,
+                "execution_time_ms": result.execution_time_ms,
+                "estimated_bytes_scanned": result.estimated_bytes_scanned,
+                "estimated_cost_usd": result.estimated_cost_usd
+            })),
+        ),
+        Err(e) => (
+            StatusCode::BAD_REQUEST,
+            Json(json!({"error": e.to_string()})),
+        ),
+    }
+}
+
+pub async fn get_cloud_warehouse_databases(
+    Path(id): Path<String>,
+) -> (StatusCode, Json<serde_json::Value>) {
+    let manager = crate::cloud_warehouse::CloudWarehouseManager::new();
+
+    match manager.get_databases(&id).await {
+        Ok(databases) => (StatusCode::OK, Json(json!({"databases": databases}))),
+        Err(e) => (
+            StatusCode::BAD_REQUEST,
+            Json(json!({"error": e.to_string()})),
+        ),
+    }
+}
+
+pub async fn get_cloud_warehouse_tables(
+    Path((id, database)): Path<(String, String)>,
+) -> (StatusCode, Json<serde_json::Value>) {
+    let manager = crate::cloud_warehouse::CloudWarehouseManager::new();
+
+    match manager.get_tables(&id, &database).await {
+        Ok(tables) => (StatusCode::OK, Json(json!({"tables": tables}))),
+        Err(e) => (
+            StatusCode::BAD_REQUEST,
+            Json(json!({"error": e.to_string()})),
+        ),
+    }
+}
+
+pub async fn estimate_cloud_query_cost(
+    Path(id): Path<String>,
+    Json(req): Json<ExecuteSQLRequest>,
+) -> (StatusCode, Json<serde_json::Value>) {
+    let manager = crate::cloud_warehouse::CloudWarehouseManager::new();
+
+    match manager.estimate_query_cost(&id, &req.query) {
+        Ok(estimate) => (StatusCode::OK, Json(json!(estimate))),
+        Err(e) => (
+            StatusCode::BAD_REQUEST,
+            Json(json!({"error": e.to_string()})),
+        ),
+    }
 }
