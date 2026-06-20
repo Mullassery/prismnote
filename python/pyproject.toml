@@ -1,0 +1,33 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "prismnote"
+version = "0.1.0"
+description = "A modern, open-source data science notebook with Deepnote-quality UI"
+readme = "README.md"
+requires-python = ">=3.8"
+license = { text = "MIT" }
+authors = [
+    { name = "Georgi Mammen Mullassery", email = "mullassery@gmail.com" }
+]
+keywords = ["notebook", "jupyter", "data-science", "interactive"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+
+[project.scripts]
+prismnote = "prismnote._cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["prismnote"]
