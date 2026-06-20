@@ -238,51 +238,35 @@ PrismNote integrates Claude API for intelligent code assistance:
 
 Configure API key: `export ANTHROPIC_API_KEY=sk-...`
 
-## Release Status
-
-### v0.1 (2024-06)
-- [x] Basic notebook interface
-- [x] Cell execution (Python)
-- [x] Output rendering
-- [x] Dark/light themes
-- [x] Markdown cells
-
-### v0.2 (2026-06)
-- [x] Jupyter kernel integration (subprocess-based)
-- [x] Claude API integration
-- [x] .ipynb import/export
-- [x] Notebook versioning (Git-like)
-- [x] RBAC (Owner/Editor/Commenter/Viewer)
-- [x] Notebook scheduling (Cron)
-- [x] Data profiling engine
-- [x] MacBook M-series support (M1-M5+)
-- [x] Library recommendations (AI-powered)
-
-### v0.3 (2026-06)
-- [x] SQL cell execution with optimization
-- [x] Spark session management (local/distributed)
-- [x] Execution pipeline with DAG
-- [x] Cloud data warehouse support (8 platforms)
-- [x] AI model fine-tuning (RunPod, Lambda Labs)
-- [x] Enterprise authentication (AAD, LDAP, SAML, OAuth2)
-- [x] Multi-tenant architecture
-- [x] Multi-factor authentication framework
+## Roadmap
 
 ### v0.4 (Planned 2026-Q3)
-- [ ] Real database driver integration (live query execution)
-- [ ] RunPod/Lambda Labs live training
-- [ ] OAuth2 real token exchange
-- [ ] ZMQ kernel protocol (full Jupyter compatibility)
-- [ ] Real-time collaboration (WebSocket sync)
-- [ ] Advanced performance dashboards
+- Real database driver integration (live query execution)
+- RunPod/Lambda Labs live training execution
+- OAuth2 real token exchange
+- ZMQ kernel protocol (full Jupyter compatibility)
+- Real-time collaboration (WebSocket sync)
+- Advanced performance dashboards
+- Distributed execution framework
 
-### v1.0 (Planned 2026-Q4)
-- [ ] Production-grade maturity
-- [ ] Distributed training support
-- [ ] MLOps integration (MLflow)
-- [ ] Kubernetes native deployment
-- [ ] SOC2/HIPAA compliance
-- [ ] Enterprise support programs
+### v0.5 (Planned 2026-Q4)
+- Multi-factor authentication (TOTP, SMS, email)
+- Advanced access controls and device trust
+- Conditional access policies
+- Risk-based authentication
+- Real-time threat detection
+- Data retention policies
+
+### v1.0 (Planned 2027-Q1)
+- Production-grade maturity and SLA
+- Distributed training across multiple machines
+- MLOps integration (MLflow, Weights & Biases)
+- Kubernetes native deployment with Helm charts
+- SOC2 Type II compliance
+- HIPAA compliance certification
+- Enterprise support programs and SLAs
+- Passwordless authentication (WebAuthn/FIDO2)
+- Biometric authentication support
 
 ## Feature Comparison
 
