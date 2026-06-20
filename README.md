@@ -6,6 +6,101 @@ Enterprise-grade, open-source data science notebook platform with Rust backend p
 
 ---
 
+## User Interface Preview
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  PrismNote - Enterprise Data Science Notebook                          ✕ □ ─ │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                               │
+│  ┌─────────────────────┐ ┌──────────────────────────────────────────────┐   │
+│  │ Notebooks           │ │ My First Analysis                        [v]  │   │
+│  │ ─────────────────── │ │ ──────────────────────────────────────────── │   │
+│  │ • My First Analysis │ │                                              │   │
+│  │ • Data Exploration  │ │ ┌──────────────────────────────────────────┐ │   │
+│  │ • ML Pipeline       │ │ │ In [1]: import pandas as pd              │ │   │
+│  │ • SQL Analytics     │ │ │         df = pd.DataFrame({'a': [1,2,3]})│ │   │
+│  │                     │ │ │         print(df)                        │ │   │
+│  │ Collaborators       │ │ │                                          │ │   │
+│  │ ─────────────────── │ │ │ [RUN]  [EXPLAIN]  [FIX]  [COMPLETE]     │ │   │
+│  │ 🟢 Alice            │ │ └──────────────────────────────────────────┘ │   │
+│  │ 🟡 Bob              │ │                                              │   │
+│  │ 🔴 Charlie          │ │ Out [1]:                                     │   │
+│  │                     │ │    a                                         │   │
+│  │ Cloud Storage       │ │ 0  1                                         │   │
+│  │ ─────────────────── │ │ 1  2                                         │   │
+│  │ 📁 S3: my-bucket    │ │ 2  3                                         │   │
+│  │ 📁 GCS: data-lake   │ │                                              │   │
+│  │ 📁 Azure: workspace │ │                                              │   │
+│  │                     │ │ ┌──────────────────────────────────────────┐ │   │
+│  │ Settings            │ │ │ In [2]: df.plot()                        │ │   │
+│  │ ─────────────────── │ │ │         [Shows interactive plot]         │ │   │
+│  │ 🔧 Display          │ │ │                                          │ │   │
+│  │ 🐳 Docker           │ │ └──────────────────────────────────────────┘ │   │
+│  │ ⚙️ Advanced         │ │                                              │   │
+│  │                     │ │ [Variable Inspector]  [Execution Stats]      │   │
+│  └─────────────────────┘ └──────────────────────────────────────────────┘   │
+│                                                                               │
+│                         🟢 Real-time Collaboration                           │
+│                         ✓ Versioning & RBAC  ✓ SQL Support                  │
+│                         ✓ Spark Integration  ✓ Cloud Warehouses             │
+│                                                                               │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+Key Features Visible in UI:
+├── Left Sidebar
+│   ├── Notebook Browser with real-time collaboration indicators
+│   ├── Active collaborators with color-coded presence
+│   ├── Cloud storage mounts (S3, GCS, Azure, Google Drive)
+│   └── Settings & configuration options
+│
+├── Main Editor Area
+│   ├── Code cells with syntax highlighting (Monaco editor)
+│   ├── Rich output rendering (tables, plots, HTML, images)
+│   ├── Cell execution controls (Run, Explain, Fix, Complete)
+│   └── Execution statistics and timing
+│
+└── Right Panel (Collapsible)
+    ├── Variable inspector showing all active variables
+    ├── Execution history and statistics
+    ├── AI assistance suggestions
+    └── Comments and collaboration threads
+```
+
+**UI Features Demonstrated:**
+
+**Code Editor**
+- Syntax highlighting for Python, SQL, Bash
+- Code completion with AI assistance
+- Cell execution with visible output
+- Error detection and fixing suggestions
+
+**Collaboration**
+- Real-time presence (Alice, Bob, Charlie shown with indicators)
+- Live cursor position sync
+- Comment threads on cells
+- @mention support
+
+**Data Visualization**
+- Interactive plots (matplotlib, plotly, altair)
+- DataFrames rendered as sortable tables
+- HTML and SVG rendering
+- Images and media support
+
+**Cloud Integration**
+- S3 bucket browser
+- Google Cloud Storage access
+- Azure Blob Storage mounting
+- Google Drive integration
+
+**Management**
+- Dark/Light theme toggle
+- Font size and family customization
+- Docker container execution
+- Notebook versioning with branches
+
+---
+
 ## Quick Start (5 Minutes)
 
 ### Install
