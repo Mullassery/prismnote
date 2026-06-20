@@ -111,12 +111,19 @@ export const useNotebookStore = create<NotebookStore>((set, get) => ({
       const cells = [...state.currentNotebook.cells]
       cells[index] = { ...cells[index], ...updates }
 
-      return {
+      const updated = {
         currentNotebook: {
           ...state.currentNotebook,
           cells,
         },
       }
+
+      // Auto-save after a short delay
+      setTimeout(() => {
+        get().saveNotebook()
+      }, 1000)
+
+      return updated
     })
   },
 
@@ -137,12 +144,12 @@ export const useNotebookStore = create<NotebookStore>((set, get) => ({
     const state = get()
     if (!state.currentNotebook) return
 
-    const cellId = state.currentNotebook.cells[index]?.id
-    if (!cellId) return
+    const cell = state.currentNotebook.cells[index]
+    if (!cell) return
 
     try {
-      const res = await axios.post(`${API_BASE}/notebooks/${state.currentNotebookId}/execute`, {
-        cell_id: cellId,
+      const res = await axios.post(`${API_BASE}/notebooks/${state.currentNotebook.id}/execute`, {
+        cell_id: cell.id,
       })
 
       const { execution_count, outputs } = res.data
@@ -163,8 +170,38 @@ export const useNotebookStore = create<NotebookStore>((set, get) => ({
           },
         }
       })
-    } catch (err) {
+
+      // Auto-save after execution
+      setTimeout(() => {
+        get().saveNotebook()
+      }, 500)
+    } catch (err: any) {
       console.error('Failed to execute cell:', err)
+
+      // Show error in output
+      set((s) => {
+        if (!s.currentNotebook) return s
+
+        const cells = [...s.currentNotebook.cells]
+        cells[index] = {
+          ...cells[index],
+          outputs: [
+            {
+              output_type: 'error',
+              text: [err.response?.data?.message || err.message || 'Execution failed'],
+              metadata: null,
+              data: null,
+            },
+          ],
+        }
+
+        return {
+          currentNotebook: {
+            ...s.currentNotebook,
+            cells,
+          },
+        }
+      })
     }
   },
 
@@ -173,8 +210,10 @@ export const useNotebookStore = create<NotebookStore>((set, get) => ({
     if (!state.currentNotebook) return
 
     try {
-      // Would need POST endpoint for updates
-      console.log('Saved notebook:', state.currentNotebook)
+      await axios.put(`${API_BASE}/notebooks/${state.currentNotebook.id}`, {
+        notebook: state.currentNotebook,
+      })
+      console.log('Notebook saved successfully')
     } catch (err) {
       console.error('Failed to save notebook:', err)
     }

@@ -30,7 +30,13 @@ export default function Cell({ cell, cellIndex }: CellProps) {
     <div className="bg-slate-800 rounded-lg border border-slate-700 overflow-hidden">
       <div className="flex items-center justify-between px-4 py-2 bg-slate-700">
         <div className="flex items-center gap-2">
-          <span className="text-xs text-gray-400">[{cell.execution_count || '-'}]</span>
+          <div className="w-5 text-center">
+            {isExecuting ? (
+              <span className="text-xs text-blue-400">*</span>
+            ) : (
+              <span className="text-xs text-gray-400">[{cell.execution_count || '-'}]</span>
+            )}
+          </div>
           <span className="text-xs text-gray-500">{cell.cell_type}</span>
         </div>
         <div className="flex gap-2">

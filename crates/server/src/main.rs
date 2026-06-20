@@ -7,7 +7,7 @@ mod ws;
 
 use axum::{
     extract::DefaultBodyLimit,
-    routing::{get, post},
+    routing::{get, post, put},
     Router,
 };
 use std::net::SocketAddr;
@@ -20,6 +20,7 @@ use tracing_subscriber;
 pub struct AppState {
     notebooks_dir: String,
     ai_engine: Option<ai::AIEngine>,
+    kernel: tokio::sync::Mutex<Option<kernel::KernelManager>>,
 }
 
 #[tokio::main]
@@ -46,14 +47,27 @@ async fn main() -> anyhow::Result<()> {
         None
     };
 
+    // Initialize Jupyter kernel
+    let kernel = match kernel::KernelManager::new() {
+        Ok(k) => {
+            tracing::info!("Jupyter kernel initialized");
+            Some(k)
+        }
+        Err(e) => {
+            tracing::warn!("Failed to initialize kernel: {}", e);
+            None
+        }
+    };
+
     let state = Arc::new(AppState {
         notebooks_dir,
         ai_engine,
+        kernel: tokio::sync::Mutex::new(kernel),
     });
 
     let api_routes = Router::new()
         .route("/notebooks", get(api::list_notebooks).post(api::create_notebook))
-        .route("/notebooks/:id", get(api::get_notebook).delete(api::delete_notebook))
+        .route("/notebooks/:id", get(api::get_notebook).put(api::update_notebook).delete(api::delete_notebook))
         .route("/notebooks/:id/execute", post(api::execute_cell))
         .route("/ai/explain", post(api::ai_explain))
         .route("/ai/fix", post(api::ai_fix))
