@@ -484,10 +484,6 @@ docker run --memory=2g --memory-swap=2g prismnote:latest
 - Encrypted credential storage
 - Multi-provider support
 
-### Expected Timeline
-- Beta: July 2026
-- Release: August 2026
-
 ---
 
 ## Enterprise Features (v1.0 - Q1 2027)
