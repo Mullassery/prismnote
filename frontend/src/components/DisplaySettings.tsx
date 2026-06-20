@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { Settings, RotateCcw } from 'lucide-react'
 import { Button } from './common/Button'
 import { Card, CardBody, CardHeader } from './common/Card'

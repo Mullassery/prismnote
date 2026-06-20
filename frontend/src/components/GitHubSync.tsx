@@ -1,5 +1,5 @@
-import React, { useState } from 'react'
-import { Github, Settings, Upload, Download, Check, AlertCircle } from 'lucide-react'
+import { useState } from 'react'
+import { Code, Settings, Upload, Download, Check, AlertCircle } from 'lucide-react'
 import { Button } from './common/Button'
 import { Card, CardBody, CardHeader } from './common/Card'
 
@@ -103,7 +103,7 @@ export default function GitHubSync({ notebookId }: { notebookId: string }) {
       <CardHeader>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Github size={20} />
+            <Code size={20} />
             <h3 className="text-lg font-semibold">GitHub Sync</h3>
           </div>
           {config && (

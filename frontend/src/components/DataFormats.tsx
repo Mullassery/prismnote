@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { FileText, Info, BookOpen } from 'lucide-react'
 import { Card, CardBody, CardHeader } from './common/Card'
 

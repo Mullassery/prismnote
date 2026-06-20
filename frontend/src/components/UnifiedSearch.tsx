@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { Search, X, FileText, Database, Variable, History, MessageSquare, Link as LinkIcon } from 'lucide-react'
 
 interface SearchResult {

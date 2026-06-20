@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { Activity, Database, Cloud, AlertCircle, Check, X, Clock } from 'lucide-react'
 import { Card, CardBody, CardHeader } from './common/Card'
 

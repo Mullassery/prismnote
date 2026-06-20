@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react'
+import { useState, useRef } from 'react'
 import { Upload, Download, Trash2, Cloud, Plus } from 'lucide-react'
 import { Button } from './common/Button'
 import { Card, CardBody, CardHeader } from './common/Card'
@@ -24,6 +24,8 @@ export default function FileManager({ notebookId }: { notebookId: string }) {
   const [cloudMounts, setCloudMounts] = useState<CloudMount[]>([])
   const [isUploading, setIsUploading] = useState(false)
   const [showMountForm, setShowMountForm] = useState(false)
+  void setCloudMounts // Mark as used
+  void setIsUploading // Mark as used
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {

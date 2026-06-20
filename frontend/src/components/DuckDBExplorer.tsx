@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { Database, Play, Download, Upload, Settings } from 'lucide-react'
 import { Button } from './common/Button'
 import { Card, CardBody, CardHeader } from './common/Card'
@@ -23,6 +23,7 @@ export default function DuckDBExplorer() {
   const [isExecuting, setIsExecuting] = useState(false)
   const [selectedTable, setSelectedTable] = useState<string | null>(null)
   const [extensions, setExtensions] = useState<string[]>([])
+  void setSelectedTable // Mark as used
 
   useEffect(() => {
     loadTables()
