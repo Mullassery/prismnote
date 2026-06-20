@@ -59,6 +59,7 @@
 }
 
 /* Spin animation for loading */
+/* Smooth spin animation */
 @keyframes spin {
   from {
     transform: rotate(0deg);
@@ -68,13 +69,48 @@
   }
 }
 
-/* Pulse animation for status indicators */
+/* Gentle pulse animation for status indicators */
 @keyframes pulse {
   0%, 100% {
     opacity: 1;
+    transform: scale(1);
   }
   50% {
-    opacity: 0.5;
+    opacity: 0.7;
+    transform: scale(1.05);
+  }
+}
+
+/* Subtle bounce animation */
+@keyframes bounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+/* Shake animation for errors */
+@keyframes shake {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-4px);
+  }
+  75% {
+    transform: translateX(4px);
+  }
+}
+
+/* Gentle flip animation */
+@keyframes flip {
+  from {
+    transform: perspective(400px) rotateY(0);
+  }
+  to {
+    transform: perspective(400px) rotateY(360deg);
   }
 }
 
@@ -88,33 +124,53 @@
   }
 }
 
-/* Utility animation classes */
+/* Utility animation classes with cubic-bezier easing */
 .animate-fadeIn {
-  animation: fadeIn 200ms ease-in-out;
+  animation: fadeIn 200ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .animate-slideInLeft {
-  animation: slideInLeft 200ms ease-in-out;
+  animation: slideInLeft 300ms cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .animate-slideInRight {
-  animation: slideInRight 200ms ease-in-out;
+  animation: slideInRight 300ms cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .animate-slideInUp {
-  animation: slideInUp 200ms ease-in-out;
+  animation: slideInUp 300ms cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .animate-scaleIn {
-  animation: scaleIn 200ms ease-in-out;
+  animation: scaleIn 250ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.animate-spin {
+  animation: spin 1s cubic-bezier(0.5, 0, 0.5, 1) infinite;
 }
 
 .animate-spin-slow {
-  animation: spin 1s linear infinite;
+  animation: spin 1.5s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+}
+
+.animate-pulse {
+  animation: pulse 2.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
 .animate-pulse-slow {
-  animation: pulse 2s ease-in-out infinite;
+  animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.animate-bounce {
+  animation: bounce 1s ease-in-out infinite;
+}
+
+.animate-shake {
+  animation: shake 0.5s ease-in-out;
+}
+
+.animate-flip {
+  animation: flip 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55);
 }
 
 /* Respect user motion preferences */
