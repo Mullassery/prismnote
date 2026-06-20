@@ -70,7 +70,7 @@ cargo run --release
 
 1. Open http://localhost:8000
 2. Create a notebook
-3. Click **✨ Sparkles** icon (top right)
+3. Click ** Sparkles** icon (top right)
 4. Select your AI provider
 5. Enter API key/URL
 6. Click **Save**
@@ -80,9 +80,9 @@ cargo run --release
 1. **Write some Python code** in a cell
 2. **Click the cell** to select it (blue highlight)
 3. AI panel appears on the right with **3 buttons:**
-   - **💡 Explain Code** — Get a brief explanation
-   - **🔧 Fix Error** — Suggest fix for error
-   - **✨ Complete** — Auto-complete code
+   - ** Explain Code** — Get a brief explanation
+   - ** Fix Error** — Suggest fix for error
+   - ** Complete** — Auto-complete code
 
 4. Click a button, wait for response
 5. Click **Insert Code** to add AI suggestion to your cell
@@ -93,14 +93,14 @@ cargo run --release
 ```python
 df = pd.read_csv('data.csv').groupby('category').apply(lambda x: x.sum())
 ```
-→ Click **💡 Explain Code**
+→ Click ** Explain Code**
 → Result: "Groups data by category, sums numeric columns, returns aggregated DataFrame"
 
 ### Fix Error
 ```python
 df['missing_column'].sum()  # KeyError: 'missing_column'
 ```
-→ Click **🔧 Fix Error** (with error showing in output)
+→ Click ** Fix Error** (with error showing in output)
 → Result: "Column doesn't exist. Check available columns with `df.columns` or fix typo."
 
 ### Complete Code
@@ -111,7 +111,7 @@ def analyze_data(df):
     # Group by category
     grouped = df.groupby('category')
 ```
-→ Click **✨ Complete**
+→ Click ** Complete**
 → Result: "return grouped.agg({'value': 'sum', 'count': 'size'})"
 
 ## Pricing
@@ -149,4 +149,4 @@ def analyze_data(df):
 
 ---
 
-**Happy coding with AI!** 🚀
+**Happy coding with AI!** 

@@ -571,10 +571,10 @@ df_enhanced.write \
 ## Roadmap
 
 **v0.3 (Current):**
-- ✅ Session creation and lifecycle management
-- ✅ DataFrame registration and caching
-- ✅ Performance monitoring basics
-- ✅ Shuffle analysis
+-  Session creation and lifecycle management
+-  DataFrame registration and caching
+-  Performance monitoring basics
+-  Shuffle analysis
 
 **v0.4 (Planned):**
 - Real-time metric dashboard

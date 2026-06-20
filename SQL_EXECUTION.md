@@ -339,10 +339,10 @@ if SQLExecutor::is_sql_cell(query) {
 ## Roadmap
 
 **v0.2 (Current):**
-- ✅ SQL cell detection (--sql, %sql markers)
-- ✅ Query optimization suggestions
-- ✅ Result formatting as HTML tables
-- ✅ 5 database driver support
+-  SQL cell detection (--sql, %sql markers)
+-  Query optimization suggestions
+-  Result formatting as HTML tables
+-  5 database driver support
 
 **v0.3 (Planned):**
 - Actual database connection execution

@@ -14,44 +14,44 @@ A complete scaffold for a modern, high-performance data science notebook with:
 
 ```
 prismnote/
-├── crates/server/              # Rust backend (Axum HTTP server)
-│   ├── src/
-│   │   ├── main.rs             # Entry point, routes setup
-│   │   ├── api.rs              # Notebook CRUD endpoints
-│   │   ├── models.rs           # Data structures
-│   │   ├── ws.rs               # WebSocket handler
-│   │   ├── kernel.rs           # Jupyter kernel manager (scaffolding)
-│   │   └── files.rs            # .ipynb format conversion
-│   └── Cargo.toml
-│
-├── frontend/                   # React + TypeScript UI
-│   ├── src/
-│   │   ├── components/
-│   │   │   ├── Notebook.tsx    # Main notebook layout
-│   │   │   ├── Cell.tsx        # Code + Markdown cells (Monaco editor)
-│   │   │   ├── Output.tsx      # High-res visualization (PNG, HTML, SVG, tables)
-│   │   │   ├── Sidebar.tsx     # File tree + notebook list
-│   │   │   └── Toolbar.tsx     # Save, export, theme toggle
-│   │   ├── hooks/
-│   │   │   └── useNotebook.ts  # Zustand state management + API calls
-│   │   ├── index.css           # Tailwind + high-res viz support
-│   │   └── main.tsx
-│   ├── tailwind.config.js
-│   ├── vite.config.ts
-│   └── package.json
-│
-├── python/                     # pip/uv installable package
-│   ├── prismnote/
-│   │   ├── _cli.py             # Smart binary downloader (platform-aware)
-│   │   ├── __main__.py         # python -m prismnote entry
-│   │   └── __init__.py
-│   └── pyproject.toml
-│
-├── install.sh                  # curl installer (detects OS/arch)
-├── build.sh                    # Build script (frontend + backend)
-├── Cargo.toml                  # Workspace root
-├── README.md                   # Project overview
-└── GETTING_STARTED.md          # This file
+ crates/server/              # Rust backend (Axum HTTP server)
+    src/
+       main.rs             # Entry point, routes setup
+       api.rs              # Notebook CRUD endpoints
+       models.rs           # Data structures
+       ws.rs               # WebSocket handler
+       kernel.rs           # Jupyter kernel manager (scaffolding)
+       files.rs            # .ipynb format conversion
+    Cargo.toml
+
+ frontend/                   # React + TypeScript UI
+    src/
+       components/
+          Notebook.tsx    # Main notebook layout
+          Cell.tsx        # Code + Markdown cells (Monaco editor)
+          Output.tsx      # High-res visualization (PNG, HTML, SVG, tables)
+          Sidebar.tsx     # File tree + notebook list
+          Toolbar.tsx     # Save, export, theme toggle
+       hooks/
+          useNotebook.ts  # Zustand state management + API calls
+       index.css           # Tailwind + high-res viz support
+       main.tsx
+    tailwind.config.js
+    vite.config.ts
+    package.json
+
+ python/                     # pip/uv installable package
+    prismnote/
+       _cli.py             # Smart binary downloader (platform-aware)
+       __main__.py         # python -m prismnote entry
+       __init__.py
+    pyproject.toml
+
+ install.sh                  # curl installer (detects OS/arch)
+ build.sh                    # Build script (frontend + backend)
+ Cargo.toml                  # Workspace root
+ README.md                   # Project overview
+ GETTING_STARTED.md          # This file
 ```
 
 ## What's Implemented
@@ -239,4 +239,4 @@ npm run dev  # Vite hot-reload on port 5173
    - Upload to Releases
    - Make `pip install prismnote` work end-to-end
 
-Good luck, and thanks for building PrismNote! 🎉
+Good luck, and thanks for building PrismNote! 

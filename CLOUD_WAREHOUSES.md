@@ -674,10 +674,10 @@ difference = df_sf.compare(df_bq)
 ## Roadmap
 
 **v0.3 (Current):**
-- ✅ Connection management for 8 platforms
-- ✅ Query execution framework
-- ✅ Cost estimation
-- ✅ Database/table discovery
+-  Connection management for 8 platforms
+-  Query execution framework
+-  Cost estimation
+-  Database/table discovery
 
 **v0.4 (Planned):**
 - Actual live query execution

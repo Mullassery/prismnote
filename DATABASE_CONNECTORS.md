@@ -242,15 +242,15 @@ Or use the UI:
 
 | Component | License | Status | Notes |
 |-----------|---------|--------|-------|
-| PrismNote | MIT | ✅ | Open source, no restrictions |
-| PostgreSQL | LGPL v2+ | ✅ | Can link dynamically |
-| psycopg2 | BSD | ✅ | Permissive, GPL-compatible |
-| MySQL | GPL/Proprietary | ⚠️ | Client libraries are MIT |
-| mysql-connector | MIT | ✅ | Open source, permissive |
-| SQLite | Public Domain | ✅ | No license restrictions |
-| DuckDB | MIT | ✅ | Open source, permissive |
-| MongoDB | SSPL | ⚠️ | Server is proprietary, but... |
-| pymongo | Apache 2.0 | ✅ | Driver is open source |
+| PrismNote | MIT |  | Open source, no restrictions |
+| PostgreSQL | LGPL v2+ |  | Can link dynamically |
+| psycopg2 | BSD |  | Permissive, GPL-compatible |
+| MySQL | GPL/Proprietary |  | Client libraries are MIT |
+| mysql-connector | MIT |  | Open source, permissive |
+| SQLite | Public Domain |  | No license restrictions |
+| DuckDB | MIT |  | Open source, permissive |
+| MongoDB | SSPL |  | Server is proprietary, but... |
+| pymongo | Apache 2.0 |  | Driver is open source |
 
 **All connectors are OSS-compliant for local/proprietary use.** If distributing PrismNote as a service, check license terms for server software.
 
@@ -352,14 +352,14 @@ conn.close()
 
 | Feature | PostgreSQL | MySQL | SQLite | DuckDB | MongoDB |
 |---------|-----------|-------|--------|--------|---------|
-| SQL Queries | ✅ | ✅ | ✅ | ✅ | Limited |
-| Transactions | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Python Access | ✅ | ✅ | ✅ | ✅ | ✅ |
-| JSON Support | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Full-Text Search | ✅ | ✅ | ❌ | ❌ | ✅ |
-| CSV Import | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Remote Access | ✅ | ✅ | ❌ | Partial | ✅ |
+| SQL Queries |  |  |  |  | Limited |
+| Transactions |  |  |  |  |  |
+| Python Access |  |  |  |  |  |
+| JSON Support |  |  |  |  |  |
+| Full-Text Search |  |  |  |  |  |
+| CSV Import |  |  |  |  |  |
+| Remote Access |  |  |  | Partial |  |
 
 ---
 
-All connectors are **production-ready**, **OSS-compliant**, and **free to use**! 🎉
+All connectors are **production-ready**, **OSS-compliant**, and **free to use**! 

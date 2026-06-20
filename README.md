@@ -147,20 +147,20 @@ Detects OS and architecture, downloads and installs to /usr/local/bin.
 ## Architecture
 
 ```
-┌─────────────────────┐
-│   React Frontend    │  (TypeScript, Monaco Editor, Tailwind CSS)
-│  (high-res viz)     │
-└──────────┬──────────┘
-           │ WebSocket/REST
-┌──────────▼──────────┐
-│  Rust Backend       │  (Axum, Tokio)
-│  (Kernel Manager)   │
-└──────────┬──────────┘
-           │ ZMQ
-┌──────────▼──────────┐
-│  Jupyter Kernel     │  (ipykernel)
-│  (Python Execution) │
-└─────────────────────┘
+
+   React Frontend      (TypeScript, Monaco Editor, Tailwind CSS)
+  (high-res viz)     
+
+            WebSocket/REST
+
+  Rust Backend         (Axum, Tokio)
+  (Kernel Manager)   
+
+            ZMQ
+
+  Jupyter Kernel       (ipykernel)
+  (Python Execution) 
+
 ```
 
 ## Development

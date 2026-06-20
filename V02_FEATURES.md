@@ -65,7 +65,7 @@ pip install ipykernel
 pip install numpy
 
 # PrismNote intercepts and handles it
-# ✅ Package installed successfully
+#  Package installed successfully
 ```
 
 ### Implementation
@@ -104,7 +104,7 @@ if code.starts_with("pip install") or code.starts_with("!pip install"):
 ### Example Output
 ```
 Variables (3)
-─────────────────
+
 df
   type: DataFrame
   value: (1000, 5)
@@ -199,7 +199,7 @@ LIMIT 100;
 Result:
 ```
 user_id  events  last_event
-───────  ──────  ─────────────
+    
 12345    1543    2026-06-20 15:30
 67890    1201    2026-06-20 14:22
 ...
@@ -258,12 +258,12 @@ pub async fn execute_pyspark(&self, code: &str) -> Result<...> {
 
 | Feature | Status | Notes |
 |---------|--------|-------|
-| **Jupyter ZMQ** | 🔜 v0.2 | Full kernel protocol |
-| **Package Management** | ✅ Scaffolded | Ready to complete |
-| **Variable Inspector** | ✅ UI Built | Backend integration needed |
-| **Cell Timeout** | ✅ Scaffolded | Ready to wire up |
-| **SQL Cells** | 🔜 v0.2 | Database connector ready |
-| **PySpark** | ✅ Scaffolded | Core support added |
+| **Jupyter ZMQ** |  v0.2 | Full kernel protocol |
+| **Package Management** |  Scaffolded | Ready to complete |
+| **Variable Inspector** |  UI Built | Backend integration needed |
+| **Cell Timeout** |  Scaffolded | Ready to wire up |
+| **SQL Cells** |  v0.2 | Database connector ready |
+| **PySpark** |  Scaffolded | Core support added |
 
 ---
 
@@ -359,4 +359,4 @@ prismnote notebook.ipynb
 # 5. Use PySpark for big data
 ```
 
-Enjoy! 🚀
+Enjoy! 

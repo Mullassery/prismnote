@@ -52,10 +52,10 @@ PUT /api/notebooks/:id/branches/:branch - switch branch
 
 | Role | View | Edit | Comment | Share | Delete | Admin |
 |------|------|------|---------|-------|--------|-------|
-| **Owner** | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| **Editor** | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ |
-| **Commenter** | ✓ | Limited | ✓ | ✗ | ✗ | ✗ |
-| **Viewer** | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| **Owner** |  |  |  |  |  |  |
+| **Editor** |  |  |  |  |  |  |
+| **Commenter** |  | Limited |  |  |  |  |
+| **Viewer** |  |  |  |  |  |  |
 
 **API Ready For:**
 ```
@@ -196,36 +196,36 @@ GET /api/notebooks/:id/cells/:cid/quality-issues - data quality report
 ### Storage Structure
 ```
 ~/.prismnote/
-├── notebooks/              # Notebook files
-│   └── {notebook_id}.ipynb
-├── versions/               # Version control
-│   └── {notebook_id}/
-│       ├── .metadata.json
-│       ├── {version_id}.json
-│       └── {version_id}.json
-├── acl/                    # Access control
-│   ├── {notebook_id}.acl
-│   └── {notebook_id}.log
-├── scheduler/              # Job scheduling
-│   ├── {schedule_id}.schedule
-│   ├── {schedule_id}.notif
-│   └── jobs/
-│       └── {job_id}.job
-└── profiles/               # Data profiling
-    └── {notebook_id}/
-        └── {cell_id}.profile
+ notebooks/              # Notebook files
+    {notebook_id}.ipynb
+ versions/               # Version control
+    {notebook_id}/
+        .metadata.json
+        {version_id}.json
+        {version_id}.json
+ acl/                    # Access control
+    {notebook_id}.acl
+    {notebook_id}.log
+ scheduler/              # Job scheduling
+    {schedule_id}.schedule
+    {schedule_id}.notif
+    jobs/
+        {job_id}.job
+ profiles/               # Data profiling
+     {notebook_id}/
+         {cell_id}.profile
 ```
 
 ### Rust Module Organization
 ```
 crates/server/src/
-├── main.rs                 # UPDATED: Added 4 new modules
-├── versioning.rs           # NEW: Version control system
-├── rbac.rs                 # NEW: Access control
-├── scheduler.rs            # NEW: Job scheduling
-├── data_profiler.rs        # NEW: Data profiling
-├── api.rs                  # READY FOR: SQL routing completion
-└── kernel.rs               # READY FOR: Spark enhancement
+ main.rs                 # UPDATED: Added 4 new modules
+ versioning.rs           # NEW: Version control system
+ rbac.rs                 # NEW: Access control
+ scheduler.rs            # NEW: Job scheduling
+ data_profiler.rs        # NEW: Data profiling
+ api.rs                  # READY FOR: SQL routing completion
+ kernel.rs               # READY FOR: Spark enhancement
 ```
 
 ---
@@ -236,13 +236,13 @@ crates/server/src/
 
 | Feature | Zeppelin | PrismNote | Status |
 |---------|----------|-----------|--------|
-| **Versioning** | ✓ Basic | ✓ Full (with branches) | EQUAL+ |
-| **RBAC** | ✓ Team-based | ✓ Role-based | EQUAL |
-| **Scheduling** | ✓ Full | ✓ Full (cron) | EQUAL |
-| **Data Profiling** | ✓ Yes | ✓ Yes | EQUAL |
-| **SQL Cells** | ✓ Native | 🔜 Routing ready | SOON |
-| **Spark Mgmt** | ✓ Full | 🔜 Enhanced | SOON |
-| **Audit Logging** | ✓ Yes | ✓ Full | EQUAL |
+| **Versioning** |  Basic |  Full (with branches) | EQUAL+ |
+| **RBAC** |  Team-based |  Role-based | EQUAL |
+| **Scheduling** |  Full |  Full (cron) | EQUAL |
+| **Data Profiling** |  Yes |  Yes | EQUAL |
+| **SQL Cells** |  Native |  Routing ready | SOON |
+| **Spark Mgmt** |  Full |  Enhanced | SOON |
+| **Audit Logging** |  Yes |  Full | EQUAL |
 
 **Advantage Areas:**
 - Branching: PrismNote has full Git-like branches, Zeppelin doesn't
@@ -356,12 +356,12 @@ crates/server/src/
 ## Summary
 
 PrismNote v0.4 now includes **all core enterprise features**:
-- ✅ Versioning with branching
-- ✅ RBAC with audit logging
-- ✅ Scheduled execution
-- ✅ Data profiling & quality checks
-- 🔜 SQL execution (routing complete, needs final wiring)
-- 🔜 Enhanced Spark management
+-  Versioning with branching
+-  RBAC with audit logging
+-  Scheduled execution
+-  Data profiling & quality checks
+-  SQL execution (routing complete, needs final wiring)
+-  Enhanced Spark management
 
 **Architecture is clean, production-ready, and extensible.**
 

@@ -281,7 +281,7 @@ Based on competitive analysis with Zeppelin, these big data features are critica
 **Status:** Implemented but needs refinement
 **Effort:** Low (1 day)
 **Tasks:**
-- [ ] Ensure variables persist across cells ✓ (done)
+- [ ] Ensure variables persist across cells  (done)
 - [ ] Show variable dependencies
 - [ ] Warn on circular dependencies
 - [ ] Allow cell re-ordering safely
@@ -455,10 +455,10 @@ These three features are **CRITICAL BLOCKERS** for production adoption:
 ### Competitive Disadvantage
 
 All 5 competitors have all 3 features:
-- **JupyterLab**: Versioning ✓, Rollback ✓, RBAC (via JupyterHub) ✓
-- **Zeppelin**: Versioning ✓, Rollback ✓, RBAC ✓
-- **Google Colab**: Versioning ✓, Rollback ✓, RBAC (via Google) ✓
-- **Deepnote**: Versioning ✓, Rollback ✓, RBAC ✓
+- **JupyterLab**: Versioning , Rollback , RBAC (via JupyterHub) 
+- **Zeppelin**: Versioning , Rollback , RBAC 
+- **Google Colab**: Versioning , Rollback , RBAC (via Google) 
+- **Deepnote**: Versioning , Rollback , RBAC 
 
 **PrismNote without these = NOT COMPETITIVE**
 

@@ -182,7 +182,7 @@ cargo run --release
 
 ### Using UI Configuration
 
-Click the **Sparkles** ✨ icon in the toolbar to configure providers directly in the UI.
+Click the **Sparkles**  icon in the toolbar to configure providers directly in the UI.
 
 ---
 
@@ -190,7 +190,7 @@ Click the **Sparkles** ✨ icon in the toolbar to configure providers directly i
 
 Once configured, you get three AI actions for each code cell:
 
-### 💡 Explain Code
+###  Explain Code
 Provides a brief 2-3 sentence explanation of what the code does.
 
 **Example:**
@@ -199,14 +199,14 @@ df = pd.read_csv('data.csv').groupby('category').sum()
 ```
 → "Groups data by category and sums all numeric columns."
 
-### 🔧 Fix Error
+###  Fix Error
 Analyzes error output and suggests a fix.
 
 **Example:**
 - Error: `KeyError: 'column_name'`
 - Suggestion: "The column doesn't exist. Check column names with `df.columns` or rename the reference."
 
-### ✨ Complete Code
+###  Complete Code
 Auto-completes or continues your code based on context.
 
 **Example:**
@@ -227,12 +227,12 @@ df.groupby('x').apply(lambda x:
 | Feature | Ollama | Claude | OpenAI |
 |---------|--------|--------|--------|
 | **Cost** | Free | ~$0.01/request | ~$0.10/request (GPT-4) |
-| **Offline** | ✓ | ✗ | ✗ |
+| **Offline** |  |  |  |
 | **Speed** | Slow (CPU), Fast (GPU) | Fast | Fast |
 | **Accuracy** | Good | Excellent | Excellent |
 | **Setup Complexity** | Medium | Easy | Easy |
 | **Privacy** | Excellent | Good | Fair |
-| **Internet Required** | ✗ | ✓ | ✓ |
+| **Internet Required** |  |  |  |
 
 ---
 

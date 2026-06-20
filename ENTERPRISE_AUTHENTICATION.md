@@ -608,11 +608,11 @@ POST /api/auth/login
 ## Roadmap
 
 **v0.5 (Current):**
-- ✅ Microsoft AAD integration
-- ✅ Multi-provider support (LDAP, SAML, OAuth2)
-- ✅ Session management
-- ✅ Audit logging
-- ✅ Multi-tenant framework
+-  Microsoft AAD integration
+-  Multi-provider support (LDAP, SAML, OAuth2)
+-  Session management
+-  Audit logging
+-  Multi-tenant framework
 
 **v0.6 (Planned):**
 - Multi-factor authentication (TOTP, SMS)
@@ -633,10 +633,10 @@ POST /api/auth/login
 ## Compliance & Standards
 
 **Supported Standards:**
-- ✅ OAuth 2.0 (RFC 6749)
-- ✅ OpenID Connect (OIDC)
-- ✅ SAML 2.0
-- ✅ JWT (RFC 7519)
+-  OAuth 2.0 (RFC 6749)
+-  OpenID Connect (OIDC)
+-  SAML 2.0
+-  JWT (RFC 7519)
 
 **Certifications:**
 - SOC 2 Type II ready

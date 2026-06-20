@@ -78,23 +78,23 @@ Then visit:
 
 ```
 prismnote/
-├── crates/server/              # Rust backend
-│   ├── src/
-│   │   ├── main.rs            # Entry point
-│   │   ├── api.rs             # REST endpoints
-│   │   ├── kernel.rs          # Python execution
-│   │   ├── ai.rs              # AI integration
-│   │   ├── db.rs              # Database connectors
-│   │   └── ...                # Other modules
-│   └── Cargo.toml
-├── frontend/                   # React + TypeScript
-│   ├── src/
-│   │   ├── components/        # React components
-│   │   ├── hooks/             # Custom hooks
-│   │   └── styles/            # CSS/Tailwind
-│   └── package.json
-├── python/                     # pip/uv package
-└── docs/                       # Documentation
+ crates/server/              # Rust backend
+    src/
+       main.rs            # Entry point
+       api.rs             # REST endpoints
+       kernel.rs          # Python execution
+       ai.rs              # AI integration
+       db.rs              # Database connectors
+       ...                # Other modules
+    Cargo.toml
+ frontend/                   # React + TypeScript
+    src/
+       components/        # React components
+       hooks/             # Custom hooks
+       styles/            # CSS/Tailwind
+    package.json
+ python/                     # pip/uv package
+ docs/                       # Documentation
 ```
 
 ## Coding Standards
@@ -267,4 +267,4 @@ Open a [GitHub Discussion](https://github.com/Mullassery/prismnote/discussions) 
 
 ---
 
-**Thank you for contributing to PrismNote!** 🎉
+**Thank you for contributing to PrismNote!** 

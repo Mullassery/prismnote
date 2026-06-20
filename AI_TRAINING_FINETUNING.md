@@ -26,13 +26,13 @@ PrismNote provides integrated AI model fine-tuning capabilities directly from yo
 
 | Model | Size | Provider | LoRA Support |
 |-------|------|----------|---|
-| **LLaMA 2** | 7B, 13B, 70B | Meta | ✅ |
-| **Mistral** | 7B | Mistral AI | ✅ |
-| **Falcon** | 7B, 40B, 180B | TII | ✅ |
-| **Grok-1** | 314B | xAI | ✅ |
-| **Code Llama** | 7B, 13B, 34B | Meta | ✅ |
-| **MPT** | 3B, 7B, 30B | MosaicML | ✅ |
-| **Phi** | 3B | Microsoft | ✅ |
+| **LLaMA 2** | 7B, 13B, 70B | Meta |  |
+| **Mistral** | 7B | Mistral AI |  |
+| **Falcon** | 7B, 40B, 180B | TII |  |
+| **Grok-1** | 314B | xAI |  |
+| **Code Llama** | 7B, 13B, 34B | Meta |  |
+| **MPT** | 3B, 7B, 30B | MosaicML |  |
+| **Phi** | 3B | Microsoft |  |
 
 ### Commercial Models
 
@@ -579,10 +579,10 @@ job = requests.post("/api/ai/fine-tuning/jobs", json={
 ## Roadmap
 
 **v0.4 (Current):**
-- ✅ Job creation and management
-- ✅ RunPod integration
-- ✅ Checkpoint management
-- ✅ Cost estimation
+-  Job creation and management
+-  RunPod integration
+-  Checkpoint management
+-  Cost estimation
 
 **v0.5 (Planned):**
 - Live training monitoring dashboard

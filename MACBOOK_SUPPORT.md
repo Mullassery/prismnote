@@ -222,29 +222,29 @@ Binary: prismnote-macos-m5
 
 | MacBook Model | Release | M-Series | Status |
 |---|---|---|---|
-| **Air 13"** | 2020 | M1 | ✅ Full |
-| **Air 13"** | 2022 | M2 | ✅ Full |
-| **Air 13"** | 2024 | M3 | ✅ Full |
-| **Air 15"** | 2023 | M2 | ✅ Full |
-| **Air 15"** | 2024 | M3 | ✅ Full |
-| **Pro 13"** | 2020 | M1 | ✅ Full |
-| **Pro 13"** | 2022 | M2 | ✅ Full |
-| **Pro 14"** | 2021 | M1 Pro/Max | ✅ Full |
-| **Pro 14"** | 2023 | M3 Pro/Max | ✅ Full |
-| **Pro 14"** | 2024 | M4 Pro/Max | ✅ Full |
-| **Pro 16"** | 2021 | M1 Pro/Max | ✅ Full |
-| **Pro 16"** | 2023 | M3 Pro/Max | ✅ Full |
-| **Pro 16"** | 2024 | M4 Pro/Max | ✅ Full |
-| **mini** | 2020 | M1 | ✅ Full |
-| **mini** | 2023 | M2 | ✅ Full |
-| **mini** | 2024 | M4 | ✅ Full |
-| **Studio** | 2022 | M1 Ultra | ✅ Full |
-| **Studio** | 2023 | M2 Ultra | ✅ Full |
-| **iMac 24"** | 2021 | M1 | ✅ Full |
-| **iMac 24"** | 2023 | M3 | ✅ Full |
-| **iMac 24"** | 2024 | M4 | ✅ Full |
-| **MacBook Pro 16"** | 2025 (Future) | M5 | ✅ Full |
-| **MacBook Air** | 2025+ (Future) | M5+ | ✅ Full |
+| **Air 13"** | 2020 | M1 |  Full |
+| **Air 13"** | 2022 | M2 |  Full |
+| **Air 13"** | 2024 | M3 |  Full |
+| **Air 15"** | 2023 | M2 |  Full |
+| **Air 15"** | 2024 | M3 |  Full |
+| **Pro 13"** | 2020 | M1 |  Full |
+| **Pro 13"** | 2022 | M2 |  Full |
+| **Pro 14"** | 2021 | M1 Pro/Max |  Full |
+| **Pro 14"** | 2023 | M3 Pro/Max |  Full |
+| **Pro 14"** | 2024 | M4 Pro/Max |  Full |
+| **Pro 16"** | 2021 | M1 Pro/Max |  Full |
+| **Pro 16"** | 2023 | M3 Pro/Max |  Full |
+| **Pro 16"** | 2024 | M4 Pro/Max |  Full |
+| **mini** | 2020 | M1 |  Full |
+| **mini** | 2023 | M2 |  Full |
+| **mini** | 2024 | M4 |  Full |
+| **Studio** | 2022 | M1 Ultra |  Full |
+| **Studio** | 2023 | M2 Ultra |  Full |
+| **iMac 24"** | 2021 | M1 |  Full |
+| **iMac 24"** | 2023 | M3 |  Full |
+| **iMac 24"** | 2024 | M4 |  Full |
+| **MacBook Pro 16"** | 2025 (Future) | M5 |  Full |
+| **MacBook Air** | 2025+ (Future) | M5+ |  Full |
 
 ---
 
@@ -318,12 +318,12 @@ python -c "from prismnote._cli import PlatformDetector; print(PlatformDetector.g
 ## Summary
 
 PrismNote now provides:
-- ✅ Full support for M1, M2, M3, M4, M5, M6, M7, M8
-- ✅ Auto-detection of MacBook type
-- ✅ Automatic binary selection
-- ✅ Future-proof for M9+
-- ✅ Seamless installation via pip/uv/curl
-- ✅ No manual architecture selection needed
+-  Full support for M1, M2, M3, M4, M5, M6, M7, M8
+-  Auto-detection of MacBook type
+-  Automatic binary selection
+-  Future-proof for M9+
+-  Seamless installation via pip/uv/curl
+-  No manual architecture selection needed
 
 **For all Apple Silicon MacBooks (2020+), PrismNote "just works."**
 

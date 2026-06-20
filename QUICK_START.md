@@ -23,7 +23,7 @@ bash build.sh
 ./target/release/prismnote
 ```
 
-Opens http://localhost:8000 automatically ✨
+Opens http://localhost:8000 automatically 
 
 ### Option B: Quick Development
 ```bash
@@ -49,19 +49,19 @@ Then open http://localhost:5173
    ```
 3. **Run cell** — Press `Shift+Enter`
 4. **See output** — Should see stdout below
-5. **Use AI** — Click ✨ on toolbar, select code, click "Explain Code"
+5. **Use AI** — Click  on toolbar, select code, click "Explain Code"
 
-## What Works Right Now ✅
+## What Works Right Now 
 
-- ✅ Python code execution (print, imports, pandas, numpy, etc.)
-- ✅ Output display (text, numbers, DataFrames)
-- ✅ Notebook save/load (.ipynb format)
-- ✅ Markdown cells
-- ✅ AI assistant (Explain, Fix, Complete)
-- ✅ Keyboard shortcuts (Shift+Enter, B/A/DD)
-- ✅ Dark theme
+-  Python code execution (print, imports, pandas, numpy, etc.)
+-  Output display (text, numbers, DataFrames)
+-  Notebook save/load (.ipynb format)
+-  Markdown cells
+-  AI assistant (Explain, Fix, Complete)
+-  Keyboard shortcuts (Shift+Enter, B/A/DD)
+-  Dark theme
 
-## What's Coming Soon 🚀
+## What's Coming Soon 
 
 - [ ] Real-time WebSocket kernel communication (ZMQ fully wired)
 - [ ] Variable inspector (see active variables)
@@ -143,4 +143,4 @@ Click "Explain Code" in the AI panel to see what it does.
 
 ---
 
-**Ready to build?** Start with the full build above, then explore! 🎉
+**Ready to build?** Start with the full build above, then explore! 

@@ -155,23 +155,23 @@ Cells maintain execution cache:
 ### Structure
 
 ```
-┌─────────────┐
-│   Cell 1    │
-│  data = []  │
-└──────┬──────┘
-       │
-       ▼
-┌─────────────┐
-│   Cell 2    │
-│ proc data   │
-└──────┬──────┘
-       │
-       ├───────────────┬───────────────┐
-       ▼               ▼               ▼
-┌─────────────┐ ┌─────────────┐ ┌──────────────┐
-│   Cell 3    │ │   Cell 4    │ │   Cell 5     │
-│   Analyze   │ │   Visualize │ │   Export     │
-└─────────────┘ └─────────────┘ └──────────────┘
+
+   Cell 1    
+  data = []  
+
+       
+       
+
+   Cell 2    
+ proc data   
+
+       
+       
+                                     
+  
+   Cell 3        Cell 4        Cell 5     
+   Analyze       Visualize     Export     
+  
 ```
 
 ### API Response
@@ -293,17 +293,17 @@ result.show()
 **Execution DAG:**
 ```
 PrismNote Cell 1
-├─ Spark Job 1: Read CSV (stage 0, 1 task)
-│  └─ Output: RDD[0]
-│
+ Spark Job 1: Read CSV (stage 0, 1 task)
+   Output: RDD[0]
+
 PrismNote Cell 2
-├─ Spark Job 2: Filter (stage 1, 16 tasks)
-│  └─ Input: RDD[0]
-│  └─ Output: RDD[1]
-│
+ Spark Job 2: Filter (stage 1, 16 tasks)
+   Input: RDD[0]
+   Output: RDD[1]
+
 PrismNote Cell 3
-├─ Spark Job 3: Show (action)
-│  └─ Input: RDD[1]
+ Spark Job 3: Show (action)
+   Input: RDD[1]
 ```
 
 ### Distributed Execution
@@ -326,10 +326,10 @@ df.repartition(100).write.parquet("output")  # Parallel
 
 ```python
 # Execution fails at Cell 4
-Cell 1: ✅ Completed (15ms)
-Cell 2: ✅ Completed (200ms)
-Cell 3: ✅ Completed (50ms)
-Cell 4: ❌ Failed (syntax error)
+Cell 1:  Completed (15ms)
+Cell 2:  Completed (200ms)
+Cell 3:  Completed (50ms)
+Cell 4:  Failed (syntax error)
 Cell 5: ⏭ Skipped (dependency failed)
 ```
 
@@ -343,8 +343,8 @@ Cell 5: ⏭ Skipped (dependency failed)
 
 ```python
 # Cell 3 timeout (exceeds 30s limit)
-Cell 1: ✅ Completed (15ms)
-Cell 2: ✅ Completed (200ms)
+Cell 1:  Completed (15ms)
+Cell 2:  Completed (200ms)
 Cell 3: ⏱ Timeout (30000ms limit)
 
 # Automatic retry options:
@@ -561,11 +561,11 @@ report = combine(result1, result2)  # 1 second
 ## Roadmap
 
 **v0.3 (Current):**
-- ✅ Dependency detection and DAG building
-- ✅ Topological sorting for execution order
-- ✅ Circular dependency detection
-- ✅ Execution statistics
-- ✅ Skip unchanged cells
+-  Dependency detection and DAG building
+-  Topological sorting for execution order
+-  Circular dependency detection
+-  Execution statistics
+-  Skip unchanged cells
 
 **v0.4 (Planned):**
 - Distributed execution across machines

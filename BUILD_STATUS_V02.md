@@ -173,33 +173,33 @@ let output = Command::new("python")
 ### Rust Backend Structure
 ```
 crates/server/src/
-├── main.rs                      Complete
-├── api.rs                       Complete
-├── kernel.rs                    Variable tracking needs work
-├── cell_executor.rs             Complete
-├── library_advisor.rs           Complete (NEW)
-├── ai.rs                        call_api() method added
-├── db.rs                        Needs SQL routing
-├── files.rs                     .ipynb I/O
-├── models.rs                    Added NotebookMetadata
-└── ws.rs                        Scaffolded
+ main.rs                      Complete
+ api.rs                       Complete
+ kernel.rs                    Variable tracking needs work
+ cell_executor.rs             Complete
+ library_advisor.rs           Complete (NEW)
+ ai.rs                        call_api() method added
+ db.rs                        Needs SQL routing
+ files.rs                     .ipynb I/O
+ models.rs                    Added NotebookMetadata
+ ws.rs                        Scaffolded
 ```
 
 ### React Frontend Structure
 ```
 frontend/src/
-├── components/
-│   ├── Notebook.tsx             AI + Libraries panels
-│   ├── Cell.tsx                 Code + markdown
-│   ├── Output.tsx               Rich output rendering
-│   ├── AIPanel.tsx              Explain/Fix/Complete
-│   ├── LibrarySuggester.tsx     Complete (NEW)
-│   ├── VariableInspector.tsx    UI complete
-│   ├── DatabaseConnector.tsx    Connection UI
-│   ├── Toolbar.tsx              Save/Export/Theme
-│   └── Sidebar.tsx              Notebook list
-└── hooks/
-    └── useNotebook.ts           Updated with library methods
+ components/
+    Notebook.tsx             AI + Libraries panels
+    Cell.tsx                 Code + markdown
+    Output.tsx               Rich output rendering
+    AIPanel.tsx              Explain/Fix/Complete
+    LibrarySuggester.tsx     Complete (NEW)
+    VariableInspector.tsx    UI complete
+    DatabaseConnector.tsx    Connection UI
+    Toolbar.tsx              Save/Export/Theme
+    Sidebar.tsx              Notebook list
+ hooks/
+     useNotebook.ts           Updated with library methods
 ```
 
 ---
