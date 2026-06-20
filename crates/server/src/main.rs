@@ -1,4 +1,5 @@
 mod ai;
+mod ai_training;
 mod api;
 mod cell_executor;
 mod cloud_warehouse;
@@ -104,6 +105,14 @@ async fn main() -> anyhow::Result<()> {
         .route("/cloud-warehouses/:id/databases", get(api::get_cloud_warehouse_databases))
         .route("/cloud-warehouses/:id/databases/:db/tables", get(api::get_cloud_warehouse_tables))
         .route("/cloud-warehouses/:id/estimate-cost", post(api::estimate_cloud_query_cost))
+        .route("/ai/fine-tuning/jobs", post(api::create_fine_tuning_job).get(api::list_fine_tuning_jobs))
+        .route("/ai/fine-tuning/jobs/:id", get(api::get_fine_tuning_job))
+        .route("/ai/fine-tuning/jobs/:id/start", post(api::start_fine_tuning_job))
+        .route("/ai/fine-tuning/jobs/:id/cancel", post(api::cancel_fine_tuning_job))
+        .route("/ai/fine-tuning/jobs/:id/checkpoints", get(api::list_model_checkpoints))
+        .route("/ai/inference/endpoints", post(api::deploy_inference_endpoint).get(api::list_inference_endpoints))
+        .route("/ai/inference/endpoints/:id", delete(api::delete_inference_endpoint))
+        .route("/ai/compute/runpod-instances", get(api::get_runpod_instances))
         .with_state(state.clone());
 
     let ws_routes = Router::new()

@@ -894,3 +894,175 @@ pub async fn estimate_cloud_query_cost(
         ),
     }
 }
+
+// AI Training and fine-tuning
+#[derive(Deserialize)]
+pub struct CreateFineTuningJobRequest {
+    pub model_name: String,
+    pub ai_provider: String,
+    pub compute_provider: String,
+    pub training_data_path: String,
+    pub batch_size: u32,
+    pub num_epochs: u32,
+    pub learning_rate: f32,
+}
+
+pub async fn create_fine_tuning_job(
+    Json(req): Json<CreateFineTuningJobRequest>,
+) -> (StatusCode, Json<serde_json::Value>) {
+    let ai_provider = match req.ai_provider.as_str() {
+        "ollama" => crate::ai_training::AIProvider::Ollama,
+        "claude" => crate::ai_training::AIProvider::Claude,
+        "openai" => crate::ai_training::AIProvider::OpenAI,
+        "llama2" => crate::ai_training::AIProvider::LLaMA2,
+        "mistral" => crate::ai_training::AIProvider::Mistral,
+        _ => crate::ai_training::AIProvider::Custom,
+    };
+
+    let compute_provider = match req.compute_provider.as_str() {
+        "runpod" => crate::ai_training::ComputeProvider::RunPod,
+        "lambda" => crate::ai_training::ComputeProvider::Lambda,
+        "vast" => crate::ai_training::ComputeProvider::Vast,
+        "local" => crate::ai_training::ComputeProvider::Local,
+        _ => crate::ai_training::ComputeProvider::RunPod,
+    };
+
+    let config = crate::ai_training::FineTuningConfig {
+        model_name: req.model_name,
+        ai_provider,
+        compute_provider,
+        training_data_path: req.training_data_path,
+        validation_split: 0.1,
+        batch_size: req.batch_size,
+        num_epochs: req.num_epochs,
+        learning_rate: req.learning_rate,
+        warmup_steps: 100,
+        max_tokens: 512,
+        optimizer: "adamw".to_string(),
+        lora_rank: Some(16),
+        lora_alpha: Some(32),
+        save_steps: 500,
+    };
+
+    let mut manager = crate::ai_training::AITrainingManager::new(
+        std::env::var("RUNPOD_API_KEY").ok(),
+    );
+
+    match manager.create_fine_tuning_job(config) {
+        Ok(job) => (StatusCode::CREATED, Json(json!(job))),
+        Err(e) => (
+            StatusCode::BAD_REQUEST,
+            Json(json!({"error": e.to_string()})),
+        ),
+    }
+}
+
+pub async fn list_fine_tuning_jobs() -> Json<serde_json::Value> {
+    let manager = crate::ai_training::AITrainingManager::new(
+        std::env::var("RUNPOD_API_KEY").ok(),
+    );
+    let jobs = manager.list_jobs();
+    Json(json!({"jobs": jobs}))
+}
+
+pub async fn get_fine_tuning_job(Path(job_id): Path<String>) -> (StatusCode, Json<serde_json::Value>) {
+    let manager = crate::ai_training::AITrainingManager::new(
+        std::env::var("RUNPOD_API_KEY").ok(),
+    );
+
+    match manager.get_job(&job_id) {
+        Some(job) => (StatusCode::OK, Json(json!(job))),
+        None => (
+            StatusCode::NOT_FOUND,
+            Json(json!({"error": "Job not found"})),
+        ),
+    }
+}
+
+pub async fn start_fine_tuning_job(Path(job_id): Path<String>) -> (StatusCode, Json<serde_json::Value>) {
+    let mut manager = crate::ai_training::AITrainingManager::new(
+        std::env::var("RUNPOD_API_KEY").ok(),
+    );
+
+    match manager.start_job(&job_id).await {
+        Ok(job) => (StatusCode::OK, Json(json!(job))),
+        Err(e) => (
+            StatusCode::BAD_REQUEST,
+            Json(json!({"error": e.to_string()})),
+        ),
+    }
+}
+
+pub async fn cancel_fine_tuning_job(Path(job_id): Path<String>) -> (StatusCode, Json<serde_json::Value>) {
+    let mut manager = crate::ai_training::AITrainingManager::new(
+        std::env::var("RUNPOD_API_KEY").ok(),
+    );
+
+    match manager.cancel_job(&job_id).await {
+        Ok(_) => (StatusCode::OK, Json(json!({"status": "cancelled"}))),
+        Err(e) => (
+            StatusCode::BAD_REQUEST,
+            Json(json!({"error": e.to_string()})),
+        ),
+    }
+}
+
+pub async fn list_model_checkpoints(Path(job_id): Path<String>) -> Json<serde_json::Value> {
+    let manager = crate::ai_training::AITrainingManager::new(
+        std::env::var("RUNPOD_API_KEY").ok(),
+    );
+    let checkpoints = manager.list_checkpoints(&job_id);
+    Json(json!({"checkpoints": checkpoints}))
+}
+
+pub async fn deploy_inference_endpoint(
+    Path(checkpoint_id): Path<String>,
+) -> (StatusCode, Json<serde_json::Value>) {
+    let mut manager = crate::ai_training::AITrainingManager::new(
+        std::env::var("RUNPOD_API_KEY").ok(),
+    );
+
+    match manager.deploy_endpoint(&checkpoint_id).await {
+        Ok(endpoint) => (StatusCode::CREATED, Json(json!(endpoint))),
+        Err(e) => (
+            StatusCode::BAD_REQUEST,
+            Json(json!({"error": e.to_string()})),
+        ),
+    }
+}
+
+pub async fn list_inference_endpoints() -> Json<serde_json::Value> {
+    let manager = crate::ai_training::AITrainingManager::new(
+        std::env::var("RUNPOD_API_KEY").ok(),
+    );
+    let endpoints = manager.list_endpoints();
+    Json(json!({"endpoints": endpoints}))
+}
+
+pub async fn delete_inference_endpoint(Path(endpoint_id): Path<String>) -> (StatusCode, Json<serde_json::Value>) {
+    let mut manager = crate::ai_training::AITrainingManager::new(
+        std::env::var("RUNPOD_API_KEY").ok(),
+    );
+
+    match manager.delete_endpoint(&endpoint_id).await {
+        Ok(_) => (StatusCode::NO_CONTENT, Json(json!({"status": "deleted"}))),
+        Err(e) => (
+            StatusCode::BAD_REQUEST,
+            Json(json!({"error": e.to_string()})),
+        ),
+    }
+}
+
+pub async fn get_runpod_instances() -> (StatusCode, Json<serde_json::Value>) {
+    let manager = crate::ai_training::AITrainingManager::new(
+        std::env::var("RUNPOD_API_KEY").ok(),
+    );
+
+    match manager.get_runpod_instances().await {
+        Ok(instances) => (StatusCode::OK, Json(json!({"instances": instances}))),
+        Err(e) => (
+            StatusCode::BAD_REQUEST,
+            Json(json!({"error": e.to_string()})),
+        ),
+    }
+}
