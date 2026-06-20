@@ -1,11 +1,28 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct NotebookMetadata {
+    #[serde(default)]
+    pub ignored_libraries: Vec<IgnoredLibraryRecord>,
+    #[serde(default)]
+    pub library_suggestions_enabled: bool,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct IgnoredLibraryRecord {
+    pub name: String,
+    pub reason: Option<String>,
+    pub ignored_at: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Notebook {
     pub id: String,
     pub name: String,
     pub cells: Vec<Cell>,
     pub metadata: serde_json::Value,
+    #[serde(default)]
+    pub prismnote_metadata: Option<NotebookMetadata>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

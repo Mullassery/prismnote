@@ -1,14 +1,16 @@
 mod ai;
 mod api;
+mod cell_executor;
 mod db;
 mod files;
 mod kernel;
+mod library_advisor;
 mod models;
 mod ws;
 
 use axum::{
     extract::DefaultBodyLimit,
-    routing::{delete, get, post, put},
+    routing::{delete, get, post},
     Router,
 };
 use std::net::SocketAddr;
@@ -20,7 +22,7 @@ use tracing_subscriber;
 
 pub struct AppState {
     notebooks_dir: String,
-    ai_engine: Option<ai::AIEngine>,
+    ai_engine: Option<Arc<ai::AIEngine>>,
     kernel: tokio::sync::Mutex<Option<kernel::KernelManager>>,
 }
 
@@ -43,7 +45,7 @@ async fn main() -> anyhow::Result<()> {
             openai_api_key: std::env::var("OPENAI_API_KEY").ok(),
             openai_model: std::env::var("PRISMNOTE_OPENAI_MODEL").ok(),
         };
-        Some(ai::AIEngine::new(config))
+        Some(Arc::new(ai::AIEngine::new(config)))
     } else {
         None
     };
@@ -70,6 +72,9 @@ async fn main() -> anyhow::Result<()> {
         .route("/notebooks", get(api::list_notebooks).post(api::create_notebook))
         .route("/notebooks/:id", get(api::get_notebook).put(api::update_notebook).delete(api::delete_notebook))
         .route("/notebooks/:id/execute", post(api::execute_cell))
+        .route("/notebooks/:id/suggest-libraries", post(api::suggest_libraries))
+        .route("/notebooks/:id/libraries/ignore", post(api::ignore_library))
+        .route("/notebooks/:id/libraries/ignored", get(api::get_ignored_libraries))
         .route("/ai/explain", post(api::ai_explain))
         .route("/ai/fix", post(api::ai_fix))
         .route("/ai/complete", post(api::ai_complete))

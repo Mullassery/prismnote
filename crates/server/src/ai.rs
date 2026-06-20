@@ -26,6 +26,7 @@ pub struct AIResponse {
     pub provider: String,
 }
 
+#[derive(Clone)]
 pub struct AIEngine {
     config: AIConfig,
 }
@@ -60,6 +61,32 @@ impl AIEngine {
             "openai" => self.openai_complete(code, context).await,
             _ => Err(anyhow!("Unknown AI provider")),
         }
+    }
+
+    pub async fn call_api(&self, prompt: &str) -> Result<String> {
+        match self.config.provider.as_str() {
+            "ollama" => self.ollama_call_api(prompt).await,
+            "claude" => self.claude_call_api(prompt).await,
+            "openai" => self.openai_call_api(prompt).await,
+            _ => Err(anyhow!("Unknown AI provider")),
+        }
+    }
+
+    async fn ollama_call_api(&self, prompt: &str) -> Result<String> {
+        let ollama_url = self.config.ollama_url.as_ref().ok_or(anyhow!("Ollama URL not configured"))?;
+        let model = self.config.ollama_model.as_ref().ok_or(anyhow!("Ollama model not selected"))?;
+        self.ollama_request(ollama_url, model, prompt).await
+    }
+
+    async fn claude_call_api(&self, prompt: &str) -> Result<String> {
+        let api_key = self.config.claude_api_key.as_ref().ok_or(anyhow!("Claude API key not configured"))?;
+        self.claude_request(api_key, prompt).await
+    }
+
+    async fn openai_call_api(&self, prompt: &str) -> Result<String> {
+        let api_key = self.config.openai_api_key.as_ref().ok_or(anyhow!("OpenAI API key not configured"))?;
+        let model = self.config.openai_model.as_ref().ok_or(anyhow!("OpenAI model not selected"))?;
+        self.openai_request(api_key, model, prompt).await
     }
 
     // Ollama integration (local LLM)

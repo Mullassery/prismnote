@@ -55,6 +55,7 @@ pub fn from_ipynb(ipynb: Value) -> Result<Notebook> {
         name: "Imported Notebook".to_string(),
         cells,
         metadata: ipynb.get("metadata").cloned().unwrap_or(json!({})),
+        prismnote_metadata: None,
     })
 }
 

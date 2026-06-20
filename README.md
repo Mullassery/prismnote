@@ -156,15 +156,15 @@ Configure API key: `export ANTHROPIC_API_KEY=sk-...`
 
 ## Comparison
 
-| Feature | PrismNote | JupyterLab | Google Colab |
-|---------|-----------|-----------|------------|
-| UI Quality | ⭐⭐⭐⭐⭐ | ⭐⭐ | ⭐⭐⭐ |
-| Open Source | ✓ | ✓ | ✗ |
-| Self-Hosted | ✓ | ✓ | ✗ |
-| AI Assistant | ✓ | ✗ | ✓ |
-| Performance | ⭐⭐⭐⭐⭐ | ⭐⭐ | ⭐⭐⭐ |
-| Reproducibility | ✓ | ⚠️ | ⚠️ |
-| Jupyter Compatible | ✓ | — | ✓ |
+| Feature | PrismNote | JupyterLab | Marimo |
+|---------|-----------|-----------|---------|
+| UI Quality | Excellent | Fair | Excellent |
+| Open Source | MIT | BSD | MIT |
+| Self-Hosted | Yes | Yes | Yes |
+| AI Assistant | Yes | No | No |
+| Performance | Fast | Moderate | Fast |
+| Reproducibility | Yes | Partial | Yes |
+| Jupyter Compatible | Yes | Native | Custom |
 
 ## Contributing
 

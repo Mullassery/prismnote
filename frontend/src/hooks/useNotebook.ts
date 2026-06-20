@@ -17,10 +17,31 @@ interface Notebook {
   metadata: Record<string, any>
 }
 
+interface LibrarySuggestion {
+  name: string
+  version: string
+  description: string
+  reasoning: string
+  installed_version?: string
+  is_update: boolean
+  category: 'data' | 'viz' | 'ml' | 'web' | 'utility'
+  confidence: number
+}
+
+interface SuggestionsResponse {
+  suggestions: LibrarySuggestion[]
+  detected_intent: string
+  context_summary: string
+}
+
 interface NotebookStore {
   notebooks: Notebook[]
   currentNotebookId: string | null
   currentNotebook: Notebook | null
+  librarySuggestions: LibrarySuggestion[]
+  suggestionsIntent: string
+  suggestionsSummary: string
+  suggestionsLoading: boolean
   createNotebook: (name: string) => void
   deleteNotebook: (id: string) => void
   setCurrentNotebook: (id: string) => void
@@ -28,6 +49,8 @@ interface NotebookStore {
   updateCell: (index: number, updates: Partial<Cell>) => void
   deleteCell: (index: number) => void
   executeCell: (index: number) => Promise<void>
+  suggestLibraries: () => Promise<void>
+  ignoreLibrary: (libraryName: string) => Promise<void>
   saveNotebook: () => void
 }
 
@@ -37,6 +60,10 @@ export const useNotebookStore = create<NotebookStore>((set, get) => ({
   notebooks: [],
   currentNotebookId: null,
   currentNotebook: null,
+  librarySuggestions: [],
+  suggestionsIntent: '',
+  suggestionsSummary: '',
+  suggestionsLoading: false,
 
   createNotebook: async (name: string) => {
     try {
@@ -175,6 +202,11 @@ export const useNotebookStore = create<NotebookStore>((set, get) => ({
       setTimeout(() => {
         get().saveNotebook()
       }, 500)
+
+      // Suggest libraries after execution (debounced)
+      setTimeout(() => {
+        get().suggestLibraries()
+      }, 1000)
     } catch (err: any) {
       console.error('Failed to execute cell:', err)
 
@@ -202,6 +234,56 @@ export const useNotebookStore = create<NotebookStore>((set, get) => ({
           },
         }
       })
+    }
+  },
+
+  suggestLibraries: async () => {
+    const state = get()
+    if (!state.currentNotebook) return
+
+    set({ suggestionsLoading: true })
+
+    try {
+      const notebookCode = state.currentNotebook.cells
+        .filter((c) => c.cell_type === 'code')
+        .map((c) => (Array.isArray(c.source) ? c.source.join('') : c.source))
+        .join('\n\n')
+
+      const res = await axios.post(`${API_BASE}/notebooks/${state.currentNotebook.id}/suggest-libraries`, {
+        notebook_code: notebookCode,
+        installed_packages: [],
+        ignored_libraries: [],
+      } as any)
+
+      const data: SuggestionsResponse = res.data
+      set({
+        librarySuggestions: data.suggestions,
+        suggestionsIntent: data.detected_intent,
+        suggestionsSummary: data.context_summary,
+        suggestionsLoading: false,
+      })
+    } catch (err) {
+      console.error('Failed to suggest libraries:', err)
+      set({ suggestionsLoading: false })
+    }
+  },
+
+  ignoreLibrary: async (libraryName: string) => {
+    const state = get()
+    if (!state.currentNotebook) return
+
+    try {
+      await axios.post(`${API_BASE}/notebooks/${state.currentNotebook.id}/libraries/ignore`, {
+        library_name: libraryName,
+        reason: 'User ignored',
+      })
+
+      // Remove from suggestions
+      set({
+        librarySuggestions: state.librarySuggestions.filter((s) => s.name !== libraryName),
+      })
+    } catch (err) {
+      console.error('Failed to ignore library:', err)
     }
   },
 

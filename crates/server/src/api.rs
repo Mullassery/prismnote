@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::sync::Arc;
 use uuid::Uuid;
+use chrono;
 
 #[derive(Serialize)]
 pub struct NotebookList {
@@ -60,6 +61,10 @@ pub async fn create_notebook(
         name: req.name,
         cells: vec![],
         metadata: serde_json::json!({}),
+        prismnote_metadata: Some(crate::models::NotebookMetadata {
+            ignored_libraries: vec![],
+            library_suggestions_enabled: true,
+        }),
     };
 
     let path = format!("{}/{}.ipynb", state.notebooks_dir, id);
@@ -202,41 +207,55 @@ pub async fn execute_cell(
     // Execute
     let mut kernel = state.kernel.lock().await;
     match kernel.as_mut() {
-        Some(k) => match k.execute(&code).await {
-            Ok((_stdout, outputs)) => {
-                let response = ExecuteCellResponse {
-                    execution_count: 1,
-                    outputs: outputs
-                        .into_iter()
-                        .map(|out| Output {
-                            output_type: out.get("output_type")
-                                .and_then(|v| v.as_str())
-                                .unwrap_or("stream")
-                                .to_string(),
-                            data: out.get("text").cloned(),
-                            text: out
-                                .get("text")
-                                .and_then(|v| v.as_str())
-                                .map(|s| vec![s.to_string()]),
+        Some(k) => {
+            // Check for SQL cell marker
+            let is_sql_cell = code.trim().starts_with("--sql") || code.trim().starts_with("%sql");
+
+            let result = if is_sql_cell {
+                execute_sql_cell(&code, &state).await
+            } else {
+                match k.execute(&code).await {
+                    Ok((_stdout, outputs)) => Ok(outputs),
+                    Err(e) => Err(e),
+                }
+            };
+
+            match result {
+                Ok(outputs) => {
+                    let response = ExecuteCellResponse {
+                        execution_count: 1,
+                        outputs: outputs
+                            .into_iter()
+                            .map(|out| Output {
+                                output_type: out.get("output_type")
+                                    .and_then(|v| v.as_str())
+                                    .unwrap_or("stream")
+                                    .to_string(),
+                                data: out.get("text").cloned(),
+                                text: out
+                                    .get("text")
+                                    .and_then(|v| v.as_str())
+                                    .map(|s| vec![s.to_string()]),
+                                metadata: None,
+                            })
+                            .collect(),
+                    };
+                    (StatusCode::OK, Json(response))
+                }
+                Err(e) => (
+                    StatusCode::BAD_REQUEST,
+                    Json(ExecuteCellResponse {
+                        execution_count: 1,
+                        outputs: vec![Output {
+                            output_type: "error".to_string(),
+                            data: None,
+                            text: Some(vec![e.to_string()]),
                             metadata: None,
-                        })
-                        .collect(),
-                };
-                (StatusCode::OK, Json(response))
+                        }],
+                    }),
+                ),
             }
-            Err(e) => (
-                StatusCode::BAD_REQUEST,
-                Json(ExecuteCellResponse {
-                    execution_count: 1,
-                    outputs: vec![Output {
-                        output_type: "error".to_string(),
-                        data: None,
-                        text: Some(vec![e.to_string()]),
-                        metadata: None,
-                    }],
-                }),
-            ),
-        },
+        }
         None => (
             StatusCode::SERVICE_UNAVAILABLE,
             Json(ExecuteCellResponse {
@@ -250,6 +269,24 @@ pub async fn execute_cell(
             }),
         ),
     }
+}
+
+async fn execute_sql_cell(code: &str, _state: &Arc<AppState>) -> anyhow::Result<Vec<serde_json::Value>> {
+    let sql_code = code
+        .trim()
+        .strip_prefix("--sql")
+        .or_else(|| code.trim().strip_prefix("%sql"))
+        .unwrap_or(code)
+        .trim();
+
+    // Placeholder for SQL execution
+    // Full implementation would parse connection ID and execute via database manager
+
+    Ok(vec![json!({
+        "output_type": "stream",
+        "name": "stdout",
+        "text": format!("SQL Query (v0.2 feature): {}\n\n[Full SQL execution coming in v0.2 - configure database connections]", sql_code)
+    })])
 }
 
 #[derive(Serialize)]
@@ -403,7 +440,7 @@ pub async fn create_database(
 }
 
 pub async fn test_database(
-    Path(id): Path<String>,
+    Path(_id): Path<String>,
     Json(req): Json<crate::db::DatabaseConnection>,
 ) -> (StatusCode, Json<serde_json::Value>) {
     match crate::db::DatabaseManager::test_connection(&req).await {
@@ -426,7 +463,7 @@ pub async fn test_database(
 
 pub async fn execute_database_query(
     Path(_id): Path<String>,
-    Json(req): Json<crate::db::QueryRequest>,
+    Json(_req): Json<crate::db::QueryRequest>,
 ) -> (StatusCode, Json<serde_json::Value>) {
     // TODO: Load connection from store
     (
@@ -437,7 +474,89 @@ pub async fn execute_database_query(
     )
 }
 
-pub async fn delete_database(Path(id): Path<String>) -> StatusCode {
+pub async fn delete_database(Path(_id): Path<String>) -> StatusCode {
     // TODO: Delete from ~/.prismnote/databases.json
     StatusCode::NO_CONTENT
+}
+
+// Library recommendations
+pub async fn suggest_libraries(
+    State(state): State<Arc<AppState>>,
+    Path(_id): Path<String>,
+    Json(req): Json<crate::library_advisor::SuggestLibrariesRequest>,
+) -> (StatusCode, Json<crate::library_advisor::SuggestionsResponse>) {
+    let advisor = crate::library_advisor::LibraryAdvisor::new(state.ai_engine.clone());
+
+    match advisor.suggest_libraries(
+        &req.notebook_code,
+        req.installed_packages,
+        req.ignored_libraries,
+    ).await {
+        Ok(response) => (StatusCode::OK, Json(response)),
+        Err(_) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(crate::library_advisor::SuggestionsResponse {
+                suggestions: vec![],
+                detected_intent: "Error analyzing code".to_string(),
+                context_summary: "Try again later".to_string(),
+            }),
+        ),
+    }
+}
+
+pub async fn ignore_library(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+    Json(req): Json<crate::library_advisor::IgnoreLibraryRequest>,
+) -> (StatusCode, Json<serde_json::Value>) {
+    let path = format!("{}/{}.ipynb", state.notebooks_dir, id);
+
+    match std::fs::read_to_string(&path) {
+        Ok(content) => match serde_json::from_str::<serde_json::Value>(&content) {
+            Ok(mut ipynb) => {
+                let now = chrono::Local::now().to_rfc3339();
+
+                // Ensure prismnote metadata exists
+                if !ipynb["metadata"]["prismnote"].is_object() {
+                    ipynb["metadata"]["prismnote"] = json!({});
+                }
+
+                if !ipynb["metadata"]["prismnote"]["ignored_libraries"].is_array() {
+                    ipynb["metadata"]["prismnote"]["ignored_libraries"] = json!([]);
+                }
+
+                // Add to ignored list
+                ipynb["metadata"]["prismnote"]["ignored_libraries"].as_array_mut().unwrap().push(json!({
+                    "name": req.library_name,
+                    "reason": req.reason,
+                    "ignored_at": now,
+                }));
+
+                match std::fs::write(&path, serde_json::to_string_pretty(&ipynb).unwrap_or_default()) {
+                    Ok(_) => (StatusCode::OK, Json(json!({"status": "ignored"}))),
+                    Err(_) => (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({"error": "Failed to save"}))),
+                }
+            }
+            Err(_) => (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({"error": "Invalid notebook"}))),
+        },
+        Err(_) => (StatusCode::NOT_FOUND, Json(json!({"error": "Notebook not found"}))),
+    }
+}
+
+pub async fn get_ignored_libraries(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+) -> (StatusCode, Json<serde_json::Value>) {
+    let path = format!("{}/{}.ipynb", state.notebooks_dir, id);
+
+    match std::fs::read_to_string(&path) {
+        Ok(content) => match serde_json::from_str::<serde_json::Value>(&content) {
+            Ok(ipynb) => {
+                let ignored = ipynb["metadata"]["prismnote"]["ignored_libraries"].clone();
+                (StatusCode::OK, Json(json!({"ignored": ignored})))
+            }
+            Err(_) => (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({"ignored": []}))),
+        },
+        Err(_) => (StatusCode::NOT_FOUND, Json(json!({"ignored": []}))),
+    }
 }

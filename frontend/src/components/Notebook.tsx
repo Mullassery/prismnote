@@ -1,13 +1,31 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNotebookStore } from '../hooks/useNotebook'
 import Cell from './Cell'
 import Toolbar from './Toolbar'
 import AIPanel from './AIPanel'
+import LibrarySuggester from './LibrarySuggester'
 import { Plus } from 'lucide-react'
 
 export default function Notebook() {
-  const { currentNotebook, addCell, updateCell } = useNotebookStore()
+  const {
+    currentNotebook,
+    addCell,
+    updateCell,
+    librarySuggestions,
+    suggestionsIntent,
+    suggestionsSummary,
+    suggestionsLoading,
+    suggestLibraries,
+    ignoreLibrary,
+  } = useNotebookStore()
   const [selectedCellIndex, setSelectedCellIndex] = useState<number | null>(null)
+  const [rightPanelMode, setRightPanelMode] = useState<'ai' | 'libraries'>('ai')
+
+  useEffect(() => {
+    if (currentNotebook) {
+      suggestLibraries()
+    }
+  }, [currentNotebook?.id])
 
   if (!currentNotebook) {
     return <div className="p-4">No notebook selected</div>
@@ -51,14 +69,56 @@ export default function Notebook() {
         </div>
       </div>
 
-      {/* AI Panel */}
-      {selectedCell && selectedCell.cell_type === 'code' && (
-        <AIPanel
-          cellCode={cellCode}
-          cellError={selectedCell.outputs?.find((o: any) => o.output_type === 'error')?.text?.[0]}
-          onInsertCode={handleInsertAICode}
-        />
-      )}
+      {/* Right Panel - AI or Libraries */}
+      <div className="w-80 border-l border-slate-700 flex flex-col overflow-hidden">
+        {/* Panel tabs */}
+        <div className="flex gap-0 border-b border-slate-700">
+          <button
+            onClick={() => setRightPanelMode('ai')}
+            className={`flex-1 px-3 py-2 text-xs font-medium transition ${
+              rightPanelMode === 'ai'
+                ? 'border-b-2 border-blue-400 text-blue-400'
+                : 'text-gray-400 hover:text-white border-b-2 border-transparent'
+            }`}
+          >
+            AI
+          </button>
+          <button
+            onClick={() => setRightPanelMode('libraries')}
+            className={`flex-1 px-3 py-2 text-xs font-medium transition ${
+              rightPanelMode === 'libraries'
+                ? 'border-b-2 border-blue-400 text-blue-400'
+                : 'text-gray-400 hover:text-white border-b-2 border-transparent'
+            }`}
+          >
+            Libraries
+          </button>
+        </div>
+
+        {/* Panel content */}
+        <div className="flex-1 overflow-hidden">
+          {rightPanelMode === 'ai' && selectedCell && selectedCell.cell_type === 'code' ? (
+            <AIPanel
+              cellCode={cellCode}
+              cellError={selectedCell.outputs?.find((o: any) => o.output_type === 'error')?.text?.[0]}
+              onInsertCode={handleInsertAICode}
+            />
+          ) : rightPanelMode === 'libraries' ? (
+            <LibrarySuggester
+              suggestions={librarySuggestions}
+              onInstall={(name, version) => {
+                console.log(`Install ${name}@${version}`)
+              }}
+              onIgnore={ignoreLibrary}
+              isLoading={suggestionsLoading}
+              detectedIntent={suggestionsIntent}
+              contextSummary={suggestionsSummary}
+            />
+          ) : (
+            <div className="p-4 text-gray-500 text-sm">Select a code cell to use AI assistance</div>
+          )}
+        </div>
+      </div>
     </div>
   )
 }
