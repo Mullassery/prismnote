@@ -1,5 +1,6 @@
 mod ai;
 mod api;
+mod db;
 mod files;
 mod kernel;
 mod models;
@@ -7,7 +8,7 @@ mod ws;
 
 use axum::{
     extract::DefaultBodyLimit,
-    routing::{get, post, put},
+    routing::{delete, get, post, put},
     Router,
 };
 use std::net::SocketAddr;
@@ -73,6 +74,10 @@ async fn main() -> anyhow::Result<()> {
         .route("/ai/fix", post(api::ai_fix))
         .route("/ai/complete", post(api::ai_complete))
         .route("/ai/config", get(api::get_ai_config).post(api::set_ai_config))
+        .route("/databases", get(api::list_databases).post(api::create_database))
+        .route("/databases/:id/test", post(api::test_database))
+        .route("/databases/:id/query", post(api::execute_database_query))
+        .route("/databases/:id", delete(api::delete_database))
         .with_state(state.clone());
 
     let ws_routes = Router::new()

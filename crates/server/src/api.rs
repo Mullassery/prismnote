@@ -7,6 +7,7 @@ use axum::{
     Json,
 };
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use std::sync::Arc;
 use uuid::Uuid;
 
@@ -372,4 +373,71 @@ pub async fn ai_complete(
             }),
         ),
     }
+}
+
+// Database connectors
+#[derive(Serialize)]
+pub struct DatabaseList {
+    pub databases: Vec<crate::db::DatabaseConnection>,
+}
+
+pub async fn list_databases() -> Json<DatabaseList> {
+    // TODO: Load from ~/.prismnote/databases.json
+    Json(DatabaseList {
+        databases: vec![],
+    })
+}
+
+pub async fn create_database(
+    Json(mut req): Json<crate::db::DatabaseConnection>,
+) -> (StatusCode, Json<crate::db::DatabaseConnection>) {
+    req.id = Uuid::new_v4().to_string();
+    req.created_at = chrono::Local::now().to_rfc3339();
+
+    if let Err(_) = crate::db::DatabaseManager::validate_connection(&req) {
+        return (StatusCode::BAD_REQUEST, Json(req));
+    }
+
+    // TODO: Save to ~/.prismnote/databases.json
+    (StatusCode::CREATED, Json(req))
+}
+
+pub async fn test_database(
+    Path(id): Path<String>,
+    Json(req): Json<crate::db::DatabaseConnection>,
+) -> (StatusCode, Json<serde_json::Value>) {
+    match crate::db::DatabaseManager::test_connection(&req).await {
+        Ok(message) => (
+            StatusCode::OK,
+            Json(json!({
+                "status": "ok",
+                "message": message
+            })),
+        ),
+        Err(e) => (
+            StatusCode::BAD_REQUEST,
+            Json(json!({
+                "status": "error",
+                "message": e.to_string()
+            })),
+        ),
+    }
+}
+
+pub async fn execute_database_query(
+    Path(_id): Path<String>,
+    Json(req): Json<crate::db::QueryRequest>,
+) -> (StatusCode, Json<serde_json::Value>) {
+    // TODO: Load connection from store
+    (
+        StatusCode::NOT_IMPLEMENTED,
+        Json(json!({
+            "error": "Database connectors not yet implemented. Available: PostgreSQL, MySQL, SQLite, DuckDB, MongoDB"
+        })),
+    )
+}
+
+pub async fn delete_database(Path(id): Path<String>) -> StatusCode {
+    // TODO: Delete from ~/.prismnote/databases.json
+    StatusCode::NO_CONTENT
 }
