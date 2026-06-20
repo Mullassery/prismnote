@@ -3,16 +3,21 @@ mod ai_training;
 mod api;
 mod cell_executor;
 mod cloud_warehouse;
+mod cloud_storage;
 mod data_profiler;
 mod db;
 mod enterprise_auth;
+mod github_integration;
+mod output_renderer;
 mod execution_pipeline;
+mod file_manager;
 mod files;
 mod kernel;
 mod library_advisor;
 mod models;
 mod platform;
 mod rbac;
+mod realtime_collab;
 mod scheduler;
 mod spark_manager;
 mod sql_executor;
@@ -21,7 +26,7 @@ mod ws;
 
 use axum::{
     extract::DefaultBodyLimit,
-    routing::{delete, get, post},
+    routing::{delete, get, post, put},
     Router,
 };
 use std::net::SocketAddr;
@@ -114,6 +119,28 @@ async fn main() -> anyhow::Result<()> {
         .route("/ai/inference/endpoints", post(api::deploy_inference_endpoint).get(api::list_inference_endpoints))
         .route("/ai/inference/endpoints/:id", delete(api::delete_inference_endpoint))
         .route("/ai/compute/runpod-instances", get(api::get_runpod_instances))
+        // Realtime collaboration (v0.4)
+        .route("/notebooks/:id/collaborate", post(api::join_collaboration))
+        .route("/notebooks/:id/collaborators", get(api::get_active_collaborators))
+        .route("/notebooks/:id/comments", post(api::post_comment))
+        // File upload/download (v0.4)
+        .route("/notebooks/:id/files", post(api::upload_file).get(api::list_files))
+        .route("/notebooks/:id/files/:file_id", get(api::download_file).delete(api::delete_file))
+        // Cloud storage (v0.4)
+        .route("/cloud-storage", post(api::add_cloud_storage).get(api::list_cloud_storage))
+        .route("/cloud-storage/:name", delete(api::remove_cloud_storage))
+        // GitHub integration (v0.5)
+        .route("/github/configure", post(api::configure_github))
+        .route("/notebooks/:id/github/sync", post(api::sync_with_github))
+        .route("/notebooks/:id/github/push", post(api::push_to_github))
+        .route("/notebooks/:id/github/pull", get(api::pull_from_github))
+        // Output zoom and fullscreen
+        .route("/outputs/:output_id/zoom", put(api::set_output_zoom))
+        .route("/outputs/:output_id/fullscreen", get(api::fullscreen_output))
+        .route("/outputs/:cell_id/zoom/reset", post(api::reset_output_zoom))
+        // Typography and display settings
+        .route("/settings/display", get(api::get_display_settings).put(api::update_display_settings))
+        .route("/settings/fonts/mac", get(api::get_mac_compatible_fonts))
         .with_state(state.clone());
 
     let ws_routes = Router::new()

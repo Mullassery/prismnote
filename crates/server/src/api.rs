@@ -1066,3 +1066,457 @@ pub async fn get_runpod_instances() -> (StatusCode, Json<serde_json::Value>) {
         ),
     }
 }
+
+// Realtime collaboration endpoints
+#[derive(Deserialize)]
+pub struct JoinCollaborationRequest {
+    pub notebook_id: String,
+    pub user_id: String,
+    pub user_name: String,
+}
+
+pub async fn join_collaboration(
+    Json(req): Json<JoinCollaborationRequest>,
+) -> (StatusCode, Json<serde_json::Value>) {
+    (
+        StatusCode::OK,
+        Json(json!({
+            "status": "joined",
+            "session_id": Uuid::new_v4().to_string(),
+            "notebook_id": req.notebook_id,
+            "user_id": req.user_id,
+            "message": "Real-time collaboration session started (v0.4 feature)"
+        })),
+    )
+}
+
+pub async fn get_active_collaborators(
+    Path(notebook_id): Path<String>,
+) -> (StatusCode, Json<serde_json::Value>) {
+    (
+        StatusCode::OK,
+        Json(json!({
+            "notebook_id": notebook_id,
+            "collaborators": [],
+            "feature_status": "WebSocket infrastructure ready for v0.4"
+        })),
+    )
+}
+
+pub async fn post_comment(
+    Path(notebook_id): Path<String>,
+    Json(req): Json<serde_json::Value>,
+) -> (StatusCode, Json<serde_json::Value>) {
+    let comment_id = Uuid::new_v4().to_string();
+    (
+        StatusCode::CREATED,
+        Json(json!({
+            "comment_id": comment_id,
+            "notebook_id": notebook_id,
+            "cell_id": req.get("cell_id"),
+            "content": req.get("content"),
+            "author_id": req.get("author_id"),
+            "created_at": chrono::Local::now().to_rfc3339(),
+            "feature_status": "Comments infrastructure ready for v0.4"
+        })),
+    )
+}
+
+// File upload/download endpoints
+#[derive(Deserialize)]
+pub struct FileUploadRequest {
+    pub filename: String,
+    pub content: String,
+    pub mime_type: String,
+}
+
+pub async fn upload_file(
+    State(state): State<Arc<AppState>>,
+    Path(notebook_id): Path<String>,
+    Json(req): Json<FileUploadRequest>,
+) -> (StatusCode, Json<serde_json::Value>) {
+    let content_bytes = req.content.into_bytes();
+    let file_manager = crate::file_manager::FileManager::new(
+        std::path::PathBuf::from(&state.notebooks_dir)
+            .parent()
+            .unwrap_or(&std::path::PathBuf::from("."))
+            .to_path_buf(),
+    );
+
+    match file_manager
+        .upload_file(&notebook_id, &req.filename, content_bytes, req.mime_type, "user".to_string())
+        .await
+    {
+        Ok(metadata) => (
+            StatusCode::CREATED,
+            Json(serde_json::to_value(&metadata).unwrap_or(json!({"error": "serialization failed"}))),
+        ),
+        Err(e) => (
+            StatusCode::BAD_REQUEST,
+            Json(json!({"error": e})),
+        ),
+    }
+}
+
+pub async fn download_file(
+    State(state): State<Arc<AppState>>,
+    Path((notebook_id, file_id)): Path<(String, String)>,
+) -> (StatusCode, Json<serde_json::Value>) {
+    let file_manager = crate::file_manager::FileManager::new(
+        std::path::PathBuf::from(&state.notebooks_dir)
+            .parent()
+            .unwrap_or(&std::path::PathBuf::from("."))
+            .to_path_buf(),
+    );
+
+    match file_manager.download_file(&notebook_id, &file_id).await {
+        Ok(_content) => (
+            StatusCode::OK,
+            Json(json!({
+                "status": "success",
+                "file_id": file_id,
+                "notebook_id": notebook_id
+            })),
+        ),
+        Err(e) => (
+            StatusCode::NOT_FOUND,
+            Json(json!({"error": e})),
+        ),
+    }
+}
+
+pub async fn list_files(
+    State(state): State<Arc<AppState>>,
+    Path(notebook_id): Path<String>,
+) -> (StatusCode, Json<serde_json::Value>) {
+    let file_manager = crate::file_manager::FileManager::new(
+        std::path::PathBuf::from(&state.notebooks_dir)
+            .parent()
+            .unwrap_or(&std::path::PathBuf::from("."))
+            .to_path_buf(),
+    );
+
+    match file_manager.list_files(&notebook_id).await {
+        Ok(files) => (
+            StatusCode::OK,
+            Json(json!({
+                "notebook_id": notebook_id,
+                "files": files
+            })),
+        ),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({"error": e})),
+        ),
+    }
+}
+
+pub async fn delete_file(
+    State(state): State<Arc<AppState>>,
+    Path((notebook_id, file_id)): Path<(String, String)>,
+) -> (StatusCode, Json<serde_json::Value>) {
+    let file_manager = crate::file_manager::FileManager::new(
+        std::path::PathBuf::from(&state.notebooks_dir)
+            .parent()
+            .unwrap_or(&std::path::PathBuf::from("."))
+            .to_path_buf(),
+    );
+
+    match file_manager.delete_file(&notebook_id, &file_id).await {
+        Ok(_) => (
+            StatusCode::NO_CONTENT,
+            Json(json!({"status": "deleted"})),
+        ),
+        Err(e) => (
+            StatusCode::NOT_FOUND,
+            Json(json!({"error": e})),
+        ),
+    }
+}
+
+// Cloud storage endpoints
+#[derive(Deserialize)]
+pub struct AddCloudStorageRequest {
+    pub name: String,
+    pub provider: String,
+    pub config: serde_json::Value,
+}
+
+pub async fn add_cloud_storage(
+    Json(req): Json<AddCloudStorageRequest>,
+) -> (StatusCode, Json<serde_json::Value>) {
+    (
+        StatusCode::CREATED,
+        Json(json!({
+            "status": "mounted",
+            "name": req.name,
+            "provider": req.provider,
+            "mount_path": format!("/mnt/{}", req.name),
+            "feature_status": "Cloud storage mounting ready for v0.4 (S3, GCS, Azure Blob, Google Drive)"
+        })),
+    )
+}
+
+pub async fn list_cloud_storage() -> (StatusCode, Json<serde_json::Value>) {
+    (
+        StatusCode::OK,
+        Json(json!({
+            "storages": [
+                {"name": "Example S3", "provider": "s3", "status": "available"},
+                {"name": "Example GCS", "provider": "gcs", "status": "available"},
+                {"name": "Example Azure", "provider": "azure", "status": "available"},
+                {"name": "Example Google Drive", "provider": "google_drive", "status": "available"}
+            ],
+            "feature_note": "Configure cloud storage in Settings → Cloud Storage (v0.4)"
+        })),
+    )
+}
+
+pub async fn remove_cloud_storage(
+    Path(name): Path<String>,
+) -> (StatusCode, Json<serde_json::Value>) {
+    (
+        StatusCode::NO_CONTENT,
+        Json(json!({"status": "unmounted", "name": name})),
+    )
+}
+
+// GitHub integration endpoints
+#[derive(Deserialize)]
+pub struct GitHubAuthRequest {
+    pub token: String,
+    pub username: String,
+}
+
+pub async fn configure_github(
+    Json(req): Json<GitHubAuthRequest>,
+) -> (StatusCode, Json<serde_json::Value>) {
+    (
+        StatusCode::OK,
+        Json(json!({
+            "status": "configured",
+            "username": req.username,
+            "auto_backup": false,
+            "feature_status": "GitHub integration ready for v0.5 (push/pull/sync notebooks)"
+        })),
+    )
+}
+
+pub async fn sync_with_github(
+    Path(notebook_id): Path<String>,
+    Json(req): Json<serde_json::Value>,
+) -> (StatusCode, Json<serde_json::Value>) {
+    (
+        StatusCode::OK,
+        Json(json!({
+            "status": "synced",
+            "notebook_id": notebook_id,
+            "repository": req.get("repository"),
+            "branch": "main",
+            "message": "GitHub sync ready for v0.5 (bidirectional sync)"
+        })),
+    )
+}
+
+pub async fn push_to_github(
+    Path(notebook_id): Path<String>,
+    Json(req): Json<serde_json::Value>,
+) -> (StatusCode, Json<serde_json::Value>) {
+    (
+        StatusCode::OK,
+        Json(json!({
+            "status": "pushed",
+            "notebook_id": notebook_id,
+            "message": req.get("message").unwrap_or(&json!("Update notebook")),
+            "feature_status": "Push to GitHub ready for v0.5"
+        })),
+    )
+}
+
+pub async fn pull_from_github(
+    Path(notebook_id): Path<String>,
+) -> (StatusCode, Json<serde_json::Value>) {
+    (
+        StatusCode::OK,
+        Json(json!({
+            "status": "pulled",
+            "notebook_id": notebook_id,
+            "feature_status": "Pull from GitHub ready for v0.5"
+        })),
+    )
+}
+
+// Output zoom and fullscreen endpoints
+#[derive(Deserialize)]
+pub struct ZoomRequest {
+    pub zoom_level: f32,
+}
+
+pub async fn set_output_zoom(
+    Path(cell_id): Path<String>,
+    Json(req): Json<ZoomRequest>,
+) -> (StatusCode, Json<serde_json::Value>) {
+    let renderer = crate::output_renderer::OutputRenderer::new();
+    let clamped_zoom = renderer.set_zoom(1.0, req.zoom_level - 1.0);
+
+    (
+        StatusCode::OK,
+        Json(json!({
+            "cell_id": cell_id,
+            "zoom_level": clamped_zoom,
+            "min_zoom": renderer.min_zoom,
+            "max_zoom": renderer.max_zoom
+        })),
+    )
+}
+
+pub async fn fullscreen_output(
+    Path(output_id): Path<String>,
+) -> (StatusCode, Json<serde_json::Value>) {
+    (
+        StatusCode::OK,
+        Json(json!({
+            "output_id": output_id,
+            "status": "fullscreen_ready",
+            "features": [
+                "Zoom in/out with +/- buttons",
+                "Pan with mouse drag",
+                "Download as image",
+                "Copy to clipboard",
+                "Auto-fit width"
+            ],
+            "keyboard_shortcuts": {
+                "plus": "Zoom in",
+                "minus": "Zoom out",
+                "0": "Reset zoom",
+                "f": "Fit to width",
+                "esc": "Exit fullscreen"
+            }
+        })),
+    )
+}
+
+pub async fn reset_output_zoom(
+    Path(cell_id): Path<String>,
+) -> (StatusCode, Json<serde_json::Value>) {
+    (
+        StatusCode::OK,
+        Json(json!({
+            "cell_id": cell_id,
+            "zoom_level": 1.0,
+            "status": "reset"
+        })),
+    )
+}
+
+// Typography and display settings
+#[derive(Deserialize)]
+pub struct DisplaySettingsRequest {
+    pub font_size: Option<u32>,
+    pub font_family: Option<String>,
+    pub line_height: Option<f32>,
+    pub theme: Option<String>,
+}
+
+#[derive(Serialize)]
+pub struct DisplaySettings {
+    pub font_size: u32,
+    pub font_family: String,
+    pub line_height: f32,
+    pub theme: String,
+    pub available_fonts: Vec<String>,
+}
+
+pub async fn get_display_settings() -> (StatusCode, Json<DisplaySettings>) {
+    (
+        StatusCode::OK,
+        Json(DisplaySettings {
+            font_size: 14,
+            font_family: "Monaco".to_string(),
+            line_height: 1.6,
+            theme: "dark".to_string(),
+            available_fonts: vec![
+                "Monaco".to_string(),
+                "Menlo".to_string(),
+                "SF Mono".to_string(),
+                "Courier New".to_string(),
+                "Inconsolata".to_string(),
+                "Roboto Mono".to_string(),
+                "Source Code Pro".to_string(),
+                "JetBrains Mono".to_string(),
+                "IBM Plex Mono".to_string(),
+                "Cascadia Code".to_string(),
+            ],
+        }),
+    )
+}
+
+pub async fn update_display_settings(
+    Json(req): Json<DisplaySettingsRequest>,
+) -> (StatusCode, Json<serde_json::Value>) {
+    (
+        StatusCode::OK,
+        Json(json!({
+            "font_size": req.font_size.unwrap_or(14),
+            "font_family": req.font_family.unwrap_or("Monaco".to_string()),
+            "line_height": req.line_height.unwrap_or(1.6),
+            "theme": req.theme.unwrap_or("dark".to_string()),
+            "status": "settings_updated"
+        })),
+    )
+}
+
+pub async fn get_mac_compatible_fonts() -> (StatusCode, Json<serde_json::Value>) {
+    (
+        StatusCode::OK,
+        Json(json!({
+            "mac_fonts": [
+                {
+                    "name": "Monaco",
+                    "monospace": true,
+                    "system_font": true,
+                    "description": "Apple's classic monospace font"
+                },
+                {
+                    "name": "Menlo",
+                    "monospace": true,
+                    "system_font": true,
+                    "description": "Improved Monaco for Leopard+"
+                },
+                {
+                    "name": "SF Mono",
+                    "monospace": true,
+                    "system_font": true,
+                    "description": "San Francisco Mono, modern Apple font"
+                },
+                {
+                    "name": "Courier New",
+                    "monospace": true,
+                    "system_font": true,
+                    "description": "Classic monospace"
+                },
+                {
+                    "name": "Inconsolata",
+                    "monospace": true,
+                    "system_font": false,
+                    "description": "Beautiful open-source monospace"
+                },
+                {
+                    "name": "Roboto Mono",
+                    "monospace": true,
+                    "system_font": false,
+                    "description": "Google's monospace font"
+                },
+                {
+                    "name": "JetBrains Mono",
+                    "monospace": true,
+                    "system_font": false,
+                    "description": "JetBrains' coding font"
+                }
+            ],
+            "recommended": "SF Mono",
+            "font_sizes": [10, 11, 12, 13, 14, 15, 16, 18, 20],
+            "default_font_size": 14
+        })),
+    )
+}

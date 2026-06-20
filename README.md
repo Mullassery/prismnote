@@ -542,6 +542,52 @@ Browser: `http://localhost:5173`
 
 ---
 
+## Complete Features List
+
+**Notebook Execution**
+Code cells (Python 3.8+), Markdown cells, SQL cells, Spark SQL cells, PySpark cells
+
+**Output Rendering**
+Text, images (PNG/JPEG), HTML, SVG, pandas DataFrames, matplotlib, plotly, altair/vega, folium maps, JSON
+
+**Code Intelligence**
+Claude API code explanation, AI-powered error fixes, code completion, library recommendations (unique feature), SQL optimization
+
+**Notebook Core**
+.ipynb format (Jupyter-compatible), auto-save (5s interval), search notebooks and cells, variable inspector, execution history
+
+**Version Control**
+Git-like versioning with branching, automatic snapshots with author tracking, version diffing, rollback support, parallel development branches
+
+**Access Control**
+4-tier RBAC (Owner/Editor/Commenter/Viewer), audit logging for all actions, fine-grained permissions, user and group management, IP whitelisting
+
+**Data Management**
+Automatic DataFrame profiling, data quality detection (nulls, outliers, variance), missing data analysis, type inference, statistics (mean, median, std dev, quartiles)
+
+**Big Data**
+Apache Spark integration (local and distributed), PySpark cells, DataFrame caching, shuffle analysis, executor memory configuration, session management
+
+**SQL & Analytics**
+5 database drivers (PostgreSQL, MySQL, SQLite, DuckDB, MongoDB), cloud data warehouses (Snowflake, BigQuery, Redshift, Azure Synapse, Databricks, Athena, Presto, Trino), query cost estimation
+
+**Automation**
+Cron-based notebook scheduling (minute/hour/day/month/weekday), execution history, automatic retries, email notifications, timeout/resource limits
+
+**AI Training**
+Fine-tune LLMs (LLaMA, Mistral, Falcon, Code Llama), LoRA and QLoRA optimization, RunPod/Lambda Labs/Vast.ai integration, cost estimation, checkpoint management, inference endpoint deployment
+
+**Enterprise Auth**
+Microsoft Azure AD, LDAP/Active Directory, SAML 2.0 (Okta, OneLogin), OAuth2 (Google, GitHub), SSO, multi-tenant architecture, multi-factor authentication (TOTP, SMS), password policies
+
+**Performance**
+Smart DAG execution with automatic dependency detection, skip unchanged cells, parallel execution, execution caching, memory-aware output truncation (10MB limit)
+
+**Platform Support**
+macOS (Intel & Apple Silicon M1-M5+), Linux (x86_64, ARM64), Windows (WSL2), Kubernetes ready
+
+---
+
 ## Documentation
 
 **Getting Started**
