@@ -3,6 +3,7 @@ mod api;
 mod cell_executor;
 mod data_profiler;
 mod db;
+mod execution_pipeline;
 mod files;
 mod kernel;
 mod library_advisor;
@@ -10,6 +11,8 @@ mod models;
 mod platform;
 mod rbac;
 mod scheduler;
+mod spark_manager;
+mod sql_executor;
 mod versioning;
 mod ws;
 
@@ -80,6 +83,8 @@ async fn main() -> anyhow::Result<()> {
         .route("/notebooks/:id/suggest-libraries", post(api::suggest_libraries))
         .route("/notebooks/:id/libraries/ignore", post(api::ignore_library))
         .route("/notebooks/:id/libraries/ignored", get(api::get_ignored_libraries))
+        .route("/notebooks/:id/execution-plan", post(api::build_execution_plan))
+        .route("/notebooks/:id/execution-stats", get(api::get_execution_statistics))
         .route("/ai/explain", post(api::ai_explain))
         .route("/ai/fix", post(api::ai_fix))
         .route("/ai/complete", post(api::ai_complete))
@@ -88,6 +93,10 @@ async fn main() -> anyhow::Result<()> {
         .route("/databases/:id/test", post(api::test_database))
         .route("/databases/:id/query", post(api::execute_database_query))
         .route("/databases/:id", delete(api::delete_database))
+        .route("/sql/execute", post(api::execute_sql))
+        .route("/sql/optimize", post(api::get_query_optimizations))
+        .route("/spark/sessions", post(api::create_spark_session).get(api::list_spark_sessions))
+        .route("/spark/sessions/:id", get(api::get_spark_session))
         .with_state(state.clone());
 
     let ws_routes = Router::new()

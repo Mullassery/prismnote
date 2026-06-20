@@ -560,3 +560,145 @@ pub async fn get_ignored_libraries(
         Err(_) => (StatusCode::NOT_FOUND, Json(json!({"ignored": []}))),
     }
 }
+
+// SQL cell execution
+#[derive(Deserialize)]
+pub struct ExecuteSQLRequest {
+    pub query: String,
+    pub connection_id: String,
+}
+
+#[derive(Serialize)]
+pub struct ExecuteSQLResponse {
+    pub columns: Vec<String>,
+    pub rows: Vec<Vec<serde_json::Value>>,
+    pub row_count: usize,
+    pub execution_time_ms: u64,
+}
+
+pub async fn execute_sql(
+    Json(req): Json<ExecuteSQLRequest>,
+) -> (StatusCode, Json<serde_json::Value>) {
+    let optimizations = crate::sql_executor::SQLExecutor::analyze_query(&req.query);
+
+    // Format result as HTML table
+    let query_result = crate::sql_executor::SQLExecutor::execute_query(&req.query, &req.connection_id)
+        .await
+        .unwrap_or_else(|_| crate::sql_executor::QueryResult {
+            columns: vec![],
+            rows: vec![],
+            row_count: 0,
+            execution_time_ms: 0,
+            estimated_memory_bytes: 0,
+        });
+
+    let result_html = crate::sql_executor::SQLExecutor::format_result_as_html(&query_result);
+
+    (
+        StatusCode::OK,
+        Json(json!({
+            "html": result_html,
+            "optimizations": optimizations,
+            "row_count": query_result.row_count,
+            "execution_time_ms": query_result.execution_time_ms,
+        })),
+    )
+}
+
+pub async fn get_query_optimizations(
+    Json(req): Json<ExecuteSQLRequest>,
+) -> Json<serde_json::Value> {
+    let optimizations = crate::sql_executor::SQLExecutor::analyze_query(&req.query);
+    Json(json!({
+        "optimizations": optimizations,
+        "total_issues": optimizations.len(),
+        "high_priority": optimizations.iter().filter(|o| o.severity == "high").count(),
+    }))
+}
+
+// Spark session management
+#[derive(Deserialize)]
+pub struct CreateSparkSessionRequest {
+    pub app_name: String,
+    pub executor_memory: Option<String>,
+    pub executor_cores: Option<u32>,
+}
+
+pub async fn create_spark_session(
+    Json(req): Json<CreateSparkSessionRequest>,
+) -> (StatusCode, Json<serde_json::Value>) {
+    let config = crate::spark_manager::SparkConfig {
+        app_name: req.app_name,
+        master: "local[*]".to_string(),
+        executor_memory: req.executor_memory.unwrap_or_else(|| "2g".to_string()),
+        driver_memory: "1g".to_string(),
+        executor_cores: req.executor_cores.unwrap_or(4),
+        executor_instances: 1,
+        shuffle_partitions: 200,
+    };
+
+    let mut manager = crate::spark_manager::SparkManager::new();
+    match manager.create_session(config) {
+        Ok(session) => (StatusCode::CREATED, Json(json!(session))),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({"error": e.to_string()})),
+        ),
+    }
+}
+
+pub async fn list_spark_sessions() -> Json<serde_json::Value> {
+    let manager = crate::spark_manager::SparkManager::new();
+    let sessions = manager.list_sessions();
+    Json(json!({
+        "sessions": sessions,
+        "total": sessions.len(),
+    }))
+}
+
+pub async fn get_spark_session(
+    Path(app_id): Path<String>,
+) -> (StatusCode, Json<serde_json::Value>) {
+    let manager = crate::spark_manager::SparkManager::new();
+    match manager.get_session(&app_id) {
+        Some(session) => (StatusCode::OK, Json(json!(session))),
+        None => (
+            StatusCode::NOT_FOUND,
+            Json(json!({"error": "Session not found"})),
+        ),
+    }
+}
+
+// Execution pipeline
+#[derive(Deserialize)]
+pub struct BuildExecutionPlanRequest {
+    pub cells: Vec<crate::execution_pipeline::CellNode>,
+}
+
+pub async fn build_execution_plan(
+    Path(notebook_id): Path<String>,
+    Json(req): Json<BuildExecutionPlanRequest>,
+) -> (StatusCode, Json<serde_json::Value>) {
+    let mut pipeline = crate::execution_pipeline::ExecutionPipeline::new();
+    match pipeline.build_plan(notebook_id, req.cells) {
+        Ok(plan) => (
+            StatusCode::OK,
+            Json(json!({
+                "execution_order": plan.execution_order,
+                "total_cells": plan.nodes.len(),
+            })),
+        ),
+        Err(e) => (
+            StatusCode::BAD_REQUEST,
+            Json(json!({"error": e.to_string()})),
+        ),
+    }
+}
+
+pub async fn get_execution_statistics(
+    Path(notebook_id): Path<String>,
+) -> Json<serde_json::Value> {
+    let pipeline = crate::execution_pipeline::ExecutionPipeline::new();
+    let stats = pipeline.get_execution_statistics(&notebook_id);
+    Json(json!(stats))
+}
