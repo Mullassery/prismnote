@@ -7,6 +7,7 @@ mod files;
 mod kernel;
 mod library_advisor;
 mod models;
+mod platform;
 mod rbac;
 mod scheduler;
 mod versioning;
