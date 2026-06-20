@@ -4,6 +4,7 @@ import './styles/animations.css'
 import './styles/components.css'
 import Notebook from './components/Notebook'
 import Sidebar from './components/Sidebar'
+import UnifiedSearch from './components/UnifiedSearch'
 import { useNotebookStore } from './hooks/useNotebook'
 
 function App() {
@@ -38,6 +39,7 @@ function App() {
           </div>
         )}
       </main>
+      <UnifiedSearch />
     </div>
   )
 }

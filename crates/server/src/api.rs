@@ -2062,3 +2062,140 @@ pub async fn pull_docker_image(
         ),
     }
 }
+
+// Global Search endpoints
+#[derive(Deserialize)]
+pub struct SearchRequest {
+    pub query: String,
+    pub filters: Vec<String>,
+}
+
+#[derive(Serialize)]
+pub struct SearchResponse {
+    pub results: Vec<crate::search_engine::SearchResult>,
+    pub total: usize,
+    pub execution_time_ms: u64,
+}
+
+pub async fn search_notebooks(
+    State(state): State<Arc<AppState>>,
+    Json(req): Json<SearchRequest>,
+) -> (StatusCode, Json<SearchResponse>) {
+    let start = std::time::Instant::now();
+
+    // Load all notebooks
+    let dir = &state.notebooks_dir;
+    let mut all_items = Vec::new();
+
+    if let Ok(entries) = std::fs::read_dir(dir) {
+        for entry in entries.flatten() {
+            if let Ok(metadata) = entry.metadata() {
+                if metadata.is_file() {
+                    let path = entry.path();
+                    if path.extension().map_or(false, |ext| ext == "ipynb") {
+                        if let Ok(content) = std::fs::read_to_string(&path) {
+                            if let Ok(ipynb) = serde_json::from_str::<serde_json::Value>(&content) {
+                                if let Ok(nb) = crate::files::from_ipynb(ipynb) {
+                                    // Add notebook itself
+                                    all_items.push(crate::search_engine::SearchableItem {
+                                        id: nb.id.clone(),
+                                        title: nb.name.clone(),
+                                        category: crate::search_engine::SearchCategory::Notebook,
+                                        content: format!("Notebook: {}", nb.name),
+                                        context: None,
+                                        path: Some(path.to_string_lossy().to_string()),
+                                        timestamp: Some(chrono::Utc::now()),
+                                    });
+
+                                    // Add cell contents
+                                    for (idx, cell) in nb.cells.iter().enumerate() {
+                                        let cell_content = cell.source.join("");
+                                        if !cell_content.is_empty() {
+                                            all_items.push(crate::search_engine::SearchableItem {
+                                                id: format!("{}-cell-{}", nb.id, idx),
+                                                title: format!("Cell {} in {}", idx + 1, nb.name),
+                                                category: if cell.cell_type == "code" {
+                                                    crate::search_engine::SearchCategory::Notebook
+                                                } else {
+                                                    crate::search_engine::SearchCategory::Notebook
+                                                },
+                                                content: cell_content,
+                                                context: Some(nb.name.clone()),
+                                                path: Some(path.to_string_lossy().to_string()),
+                                                timestamp: Some(chrono::Utc::now()),
+                                            });
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Simple text-based search (full Tantivy implementation in next iteration)
+    let query_lower = req.query.to_lowercase();
+    let mut results: Vec<crate::search_engine::SearchResult> = all_items
+        .iter()
+        .filter_map(|item| {
+            let title_match = item.title.to_lowercase().contains(&query_lower);
+            let content_match = item.content.to_lowercase().contains(&query_lower);
+            let context_match = item
+                .context
+                .as_ref()
+                .map(|c| c.to_lowercase().contains(&query_lower))
+                .unwrap_or(false);
+
+            if title_match || content_match || context_match {
+                let mut score = 0.5;
+                if title_match {
+                    score += 0.3;
+                }
+                if content_match {
+                    score += 0.1;
+                }
+                if context_match {
+                    score += 0.1;
+                }
+
+                // Check filters
+                let category_str = item.category.to_string();
+                let matches_filter = req.filters.is_empty() || req.filters.contains(&category_str);
+
+                if matches_filter {
+                    Some(crate::search_engine::SearchResult {
+                        id: item.id.clone(),
+                        title: item.title.clone(),
+                        category: item.category.clone(),
+                        content: item.content.clone(),
+                        context: item.context.clone(),
+                        path: item.path.clone(),
+                        timestamp: item.timestamp.map(|t| t.to_rfc3339()),
+                        score: (score as f32).min(1.0),
+                    })
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    // Sort by score (descending)
+    results.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
+
+    let total = results.len();
+    let execution_time_ms = start.elapsed().as_millis() as u64;
+
+    (
+        StatusCode::OK,
+        Json(SearchResponse {
+            results,
+            total,
+            execution_time_ms,
+        }),
+    )
+}

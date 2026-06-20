@@ -23,6 +23,7 @@ mod platform;
 mod rbac;
 mod realtime_collab;
 mod scheduler;
+mod search_engine;
 mod spark_manager;
 mod sql_executor;
 mod versioning;
@@ -174,6 +175,8 @@ async fn main() -> anyhow::Result<()> {
         .route("/docker/containers/:container_id/files-list/:path",
             get(api::get_container_files))
         .route("/docker/images/pull", post(api::pull_docker_image))
+        // Global search (v0.3)
+        .route("/search", post(api::search_notebooks))
         .with_state(state.clone());
 
     let ws_routes = Router::new()
