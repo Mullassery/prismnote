@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
+use std::collections::HashMap;
 use tokio::fs;
 use uuid::Uuid;
 use chrono::Utc;
@@ -169,5 +170,173 @@ impl FileManager {
         }
 
         Ok(files)
+    }
+}
+
+// Cloud Storage Integration
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct CloudStorageMount {
+    pub id: String,
+    pub provider: String, // s3, gcs, azure, gdrive
+    pub bucket_or_path: String,
+    pub mount_point: String,
+    pub credentials: HashMap<String, String>,
+    pub mounted_at: String,
+    pub status: String, // active, inactive, error
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct CloudStorageMountRequest {
+    pub provider: String,
+    pub bucket_or_path: String,
+    pub mount_point: String,
+    pub access_key: Option<String>,
+    pub secret_key: Option<String>,
+    pub project_id: Option<String>,
+    pub credentials_json: Option<String>,
+}
+
+pub struct CloudStorageManager {
+    config_dir: PathBuf,
+    mounts: HashMap<String, CloudStorageMount>,
+}
+
+impl CloudStorageManager {
+    pub fn new(config_dir: PathBuf) -> Self {
+        Self {
+            config_dir,
+            mounts: HashMap::new(),
+        }
+    }
+
+    pub async fn mount_cloud_storage(
+        &mut self,
+        request: CloudStorageMountRequest,
+    ) -> Result<CloudStorageMount, String> {
+        // Validate provider
+        let valid_providers = vec!["s3", "gcs", "azure", "gdrive"];
+        if !valid_providers.contains(&request.provider.as_str()) {
+            return Err(format!(
+                "Invalid provider '{}'. Must be one of: {}",
+                request.provider,
+                valid_providers.join(", ")
+            ));
+        }
+
+        // Create mount configuration
+        let mount_id = Uuid::new_v4().to_string();
+        let mut credentials = HashMap::new();
+
+        // Store credentials securely (in production, use vault)
+        match request.provider.as_str() {
+            "s3" => {
+                if let Some(key) = request.access_key {
+                    credentials.insert("access_key".to_string(), key);
+                }
+                if let Some(secret) = request.secret_key {
+                    credentials.insert("secret_key".to_string(), secret);
+                }
+            }
+            "gcs" => {
+                if let Some(creds) = request.credentials_json {
+                    credentials.insert("credentials".to_string(), creds);
+                }
+                if let Some(project) = request.project_id {
+                    credentials.insert("project_id".to_string(), project);
+                }
+            }
+            "azure" => {
+                if let Some(key) = request.access_key {
+                    credentials.insert("account_key".to_string(), key);
+                }
+                if let Some(secret) = request.secret_key {
+                    credentials.insert("sas_token".to_string(), secret);
+                }
+            }
+            "gdrive" => {
+                if let Some(creds) = request.credentials_json {
+                    credentials.insert("credentials".to_string(), creds);
+                }
+            }
+            _ => {}
+        }
+
+        let mount = CloudStorageMount {
+            id: mount_id.clone(),
+            provider: request.provider,
+            bucket_or_path: request.bucket_or_path,
+            mount_point: request.mount_point,
+            credentials,
+            mounted_at: Utc::now().to_rfc3339(),
+            status: "active".to_string(),
+        };
+
+        // Persist mount configuration
+        self.save_mount(&mount).await?;
+        self.mounts.insert(mount_id, mount.clone());
+
+        Ok(mount)
+    }
+
+    pub async fn list_mounts(&self) -> Result<Vec<CloudStorageMount>, String> {
+        Ok(self.mounts.values().cloned().collect())
+    }
+
+    pub async fn unmount_storage(&mut self, mount_id: String) -> Result<(), String> {
+        if !self.mounts.contains_key(&mount_id) {
+            return Err("Mount not found".to_string());
+        }
+
+        let config_file = self.config_dir.join(format!("{}.json", mount_id));
+        if config_file.exists() {
+            fs::remove_file(&config_file)
+                .await
+                .map_err(|e| e.to_string())?;
+        }
+
+        self.mounts.remove(&mount_id);
+        Ok(())
+    }
+
+    pub async fn get_mount(&self, mount_id: &str) -> Option<CloudStorageMount> {
+        self.mounts.get(mount_id).cloned()
+    }
+
+    async fn save_mount(&self, mount: &CloudStorageMount) -> Result<(), String> {
+        fs::create_dir_all(&self.config_dir)
+            .await
+            .map_err(|e| e.to_string())?;
+
+        let config_file = self.config_dir.join(format!("{}.json", mount.id));
+        let config_json = serde_json::to_string_pretty(mount)
+            .map_err(|e| e.to_string())?;
+
+        fs::write(&config_file, config_json)
+            .await
+            .map_err(|e| e.to_string())
+    }
+
+    async fn load_mounts(&mut self) -> Result<(), String> {
+        if !self.config_dir.exists() {
+            return Ok(());
+        }
+
+        let mut entries = fs::read_dir(&self.config_dir)
+            .await
+            .map_err(|e| e.to_string())?;
+
+        while let Some(entry) = entries.next_entry().await.map_err(|e| e.to_string())? {
+            if let Ok(metadata) = entry.metadata().await {
+                if metadata.is_file() {
+                    if let Ok(content) = fs::read_to_string(entry.path()).await {
+                        if let Ok(mount) = serde_json::from_str::<CloudStorageMount>(&content) {
+                            self.mounts.insert(mount.id.clone(), mount);
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(())
     }
 }
