@@ -668,6 +668,106 @@ pub async fn ai_edit(
     }
 }
 
+// ── Git / GitHub integration (real, via the local `git` CLI) ─────────────────
+// Works several ways: init a repo, clone one, stage+commit, push, pull, status.
+// Operates on a directory the user points at (their workspace/notebook folder).
+
+#[derive(Deserialize)]
+pub struct GitCloneReq {
+    pub url: String,
+    pub dir: String,
+}
+
+#[derive(Deserialize)]
+pub struct GitOpReq {
+    pub dir: String,
+    #[serde(default)]
+    pub message: Option<String>,
+    #[serde(default)]
+    pub remote: Option<String>,
+    #[serde(default)]
+    pub branch: Option<String>,
+}
+
+async fn git(dir: Option<&str>, args: &[&str]) -> (bool, String) {
+    let mut c = tokio::process::Command::new("git");
+    if let Some(d) = dir {
+        c.arg("-C").arg(d);
+    }
+    c.args(args);
+    match c.output().await {
+        Ok(o) => {
+            let mut s = String::from_utf8_lossy(&o.stdout).to_string();
+            let e = String::from_utf8_lossy(&o.stderr);
+            if !e.is_empty() {
+                s.push_str(&e);
+            }
+            (o.status.success(), s.trim().to_string())
+        }
+        Err(e) => (false, format!("git not available: {}", e)),
+    }
+}
+
+fn git_json(ok: bool, output: String) -> (StatusCode, Json<serde_json::Value>) {
+    (
+        if ok { StatusCode::OK } else { StatusCode::BAD_REQUEST },
+        Json(json!({ "ok": ok, "output": output })),
+    )
+}
+
+pub async fn git_status(Query(q): Query<FsQuery>) -> (StatusCode, Json<serde_json::Value>) {
+    let dir = q.path.unwrap_or_else(default_dir);
+    let (ok_b, branch) = git(Some(&dir), &["rev-parse", "--abbrev-ref", "HEAD"]).await;
+    let (ok_s, status) = git(Some(&dir), &["status", "--short"]).await;
+    (
+        StatusCode::OK,
+        Json(json!({
+            "ok": ok_b && ok_s,
+            "is_repo": ok_b,
+            "branch": if ok_b { branch } else { String::new() },
+            "status": status,
+        })),
+    )
+}
+
+pub async fn git_init(Json(req): Json<GitOpReq>) -> (StatusCode, Json<serde_json::Value>) {
+    let (ok, out) = git(Some(&req.dir), &["init"]).await;
+    git_json(ok, out)
+}
+
+pub async fn git_clone(Json(req): Json<GitCloneReq>) -> (StatusCode, Json<serde_json::Value>) {
+    let (ok, out) = git(None, &["clone", &req.url, &req.dir]).await;
+    git_json(ok, out)
+}
+
+pub async fn git_commit(Json(req): Json<GitOpReq>) -> (StatusCode, Json<serde_json::Value>) {
+    let (ok_a, out_a) = git(Some(&req.dir), &["add", "-A"]).await;
+    if !ok_a {
+        return git_json(false, out_a);
+    }
+    let msg = req.message.unwrap_or_else(|| "Update from PrismNote".to_string());
+    let (ok, out) = git(Some(&req.dir), &["commit", "-m", &msg]).await;
+    git_json(ok, out)
+}
+
+pub async fn git_push(Json(req): Json<GitOpReq>) -> (StatusCode, Json<serde_json::Value>) {
+    let mut args = vec!["push".to_string()];
+    if let Some(r) = req.remote {
+        args.push(r);
+        if let Some(b) = req.branch {
+            args.push(b);
+        }
+    }
+    let refs: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
+    let (ok, out) = git(Some(&req.dir), &refs).await;
+    git_json(ok, out)
+}
+
+pub async fn git_pull(Json(req): Json<GitOpReq>) -> (StatusCode, Json<serde_json::Value>) {
+    let (ok, out) = git(Some(&req.dir), &["pull", "--ff-only"]).await;
+    git_json(ok, out)
+}
+
 // ── Jobs: run a whole notebook as a unit, optionally on a schedule ───────────
 use crate::jobs::{Job, JobRun, Schedule};
 

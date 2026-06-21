@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Sun, Moon } from 'lucide-react'
 import { useNotebookStore } from '../hooks/useNotebook'
 import { useWorkspace, openNotebookFile, saveJsonAs } from '../hooks/useWorkspace'
+import { restartKernel, interruptKernel } from '../api/kernel'
 
 interface MenuBarProps {
   theme: 'light' | 'dark'
@@ -10,6 +11,8 @@ interface MenuBarProps {
   onTogglePanel: (panel: 'files' | 'terminal' | 'ai') => void
   onOpenSearch?: () => void
   onOpenJobs?: () => void
+  onOpenGit?: () => void
+  onOpenCommandPalette?: () => void
 }
 
 interface MenuItem {
@@ -21,7 +24,7 @@ interface MenuItem {
   disabled?: boolean
 }
 
-export default function MenuBar({ theme, onToggleTheme, panels, onTogglePanel, onOpenSearch, onOpenJobs }: MenuBarProps) {
+export default function MenuBar({ theme, onToggleTheme, panels, onTogglePanel, onOpenSearch, onOpenJobs, onOpenGit, onOpenCommandPalette }: MenuBarProps) {
   const [open, setOpen] = useState<string | null>(null)
   const barRef = useRef<HTMLDivElement>(null)
   const {
@@ -30,8 +33,14 @@ export default function MenuBar({ theme, onToggleTheme, panels, onTogglePanel, o
     saveNotebook,
     deleteNotebook,
     addCell,
+    updateCell,
     executeCell,
   } = useNotebookStore()
+
+  const clearOutputs = () => {
+    if (!currentNotebook) return
+    currentNotebook.cells.forEach((_: any, i: number) => updateCell(i, { outputs: [], execution_count: null }))
+  }
 
   useEffect(() => {
     const close = (e: MouseEvent) => {
@@ -96,33 +105,45 @@ export default function MenuBar({ theme, onToggleTheme, panels, onTogglePanel, o
   const menus: Record<string, MenuItem[]> = {
     File: [
       { label: 'New Notebook', shortcut: '⌘N', action: newNotebook },
-      { label: 'Open Folder…', action: openFolder },
-      { label: 'Open File…', shortcut: '⌘O', action: openFile, separatorAfter: true },
-      { label: 'Save', shortcut: '⌘S', action: save, disabled: !currentNotebook, separatorAfter: true },
+      { label: 'Open File…', shortcut: '⌘O', action: openFile },
+      { label: 'Open Folder…', action: openFolder, separatorAfter: true },
+      { label: 'Save', shortcut: '⌘S', action: save, disabled: !currentNotebook },
+      { label: 'Export as .ipynb…', action: save, disabled: !currentNotebook, separatorAfter: true },
       { label: 'Close Notebook', action: () => currentNotebook && deleteNotebook(currentNotebook.id), disabled: !currentNotebook },
     ],
     Edit: [
       { label: 'Add Code Cell', shortcut: '⌘⏎', action: () => addCell('code'), disabled: !currentNotebook },
       { label: 'Add Markdown Cell', action: () => addCell('markdown'), disabled: !currentNotebook, separatorAfter: true },
       { label: 'Find in Notebook…', shortcut: '⌘F', action: () => onOpenSearch?.() },
+      { label: 'Command Palette…', shortcut: '⇧⌘P', action: () => onOpenCommandPalette?.() },
     ],
     View: [
       { label: 'File Explorer', checked: panels.files, action: () => onTogglePanel('files') },
-      { label: 'Terminal', checked: panels.terminal, action: () => onTogglePanel('terminal') },
-      { label: 'AI Assistant', checked: panels.ai, action: () => onTogglePanel('ai'), separatorAfter: true },
+      { label: 'Terminal & Console', checked: panels.terminal, action: () => onTogglePanel('terminal') },
+      { label: 'AI Assistant', checked: panels.ai, action: () => onTogglePanel('ai') },
+      { label: 'Search…', shortcut: '⌘K', action: () => onOpenSearch?.(), separatorAfter: true },
       { label: theme === 'dark' ? 'Light Theme' : 'Dark Theme', action: onToggleTheme },
     ],
     Run: [
       { label: 'Run All Cells', shortcut: '⌘⇧⏎', action: runAll, disabled: !currentNotebook },
       { label: 'Add & Run Cell', action: () => addCell('code'), disabled: !currentNotebook },
+      { label: 'Clear All Outputs', action: clearOutputs, disabled: !currentNotebook, separatorAfter: true },
+      { label: 'Interrupt Kernel', action: () => interruptKernel() },
+      { label: 'Restart Kernel', action: () => { if (confirm('Restart the kernel? All variables will be cleared.')) restartKernel() } },
     ],
     Jobs: [
       { label: 'Open Jobs…', action: () => onOpenJobs?.() },
       { label: 'Run Current Notebook as Job…', action: () => onOpenJobs?.(), disabled: !currentNotebook },
     ],
+    Git: [
+      { label: 'Source Control…', action: () => onOpenGit?.() },
+      { label: 'Commit & Push…', action: () => onOpenGit?.() },
+      { label: 'Clone Repository…', action: () => onOpenGit?.() },
+    ],
     Help: [
       { label: 'About PrismNote', action: () => window.alert('PrismNote — a modern, open-source data-science notebook.\nRust engine · React UI.') },
       { label: 'Documentation', action: () => window.open('https://github.com/Mullassery/prismnote#readme', '_blank') },
+      { label: 'Keyboard Shortcuts', action: () => window.alert('⌘N New · ⌘O Open · ⌘S Save · ⌘K Search · ⇧⌘P Command Palette · ⌘⇧⏎ Run All · ⌘K (in cell) AI edit') },
     ],
   }
 
