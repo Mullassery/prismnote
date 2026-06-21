@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Play, Trash2, X, Plus, Clock, CheckCircle2, XCircle, Loader2, Briefcase } from 'lucide-react'
-import { listJobs, createJob, runJob, deleteJob, type JobSummary, type Schedule } from '../api/jobs'
+import { Play, Trash2, X, Plus, Clock, CheckCircle2, XCircle, Loader2, Briefcase, Workflow, Copy } from 'lucide-react'
+import { listJobs, createJob, runJob, deleteJob, airflowDag, type JobSummary, type Schedule } from '../api/jobs'
 import { useNotebookStore } from '../hooks/useNotebook'
 
 // Airflow-like Jobs view: save the current notebook as a runnable job, run it on
@@ -11,6 +11,7 @@ export default function JobsPanel({ onClose }: { onClose: () => void }) {
   const [loading, setLoading] = useState(false)
   const [busy, setBusy] = useState<string | null>(null)
   const [showCreate, setShowCreate] = useState(false)
+  const [dag, setDag] = useState<{ dag: string; filename: string } | null>(null)
 
   // create form
   const [name, setName] = useState('')
@@ -114,6 +115,22 @@ export default function JobsPanel({ onClose }: { onClose: () => void }) {
         </div>
       )}
 
+      {dag && (
+        <div className="absolute inset-0 z-40 bg-black/50 flex items-center justify-center p-6" onClick={() => setDag(null)}>
+          <div className="pn-solid-bg border pn-bd rounded-xl max-w-2xl w-full max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-4 py-2 border-b pn-bd">
+              <span className="text-sm pn-text flex items-center gap-2"><Workflow size={15} className="text-violet-400" /> Airflow DAG — <code className="pn-faint">{dag.filename}</code></span>
+              <div className="flex items-center gap-2">
+                <button onClick={() => navigator.clipboard.writeText(dag.dag)} className="flex items-center gap-1 px-2 py-1 rounded bg-white/5 hover:bg-white/10 pn-text text-[12px]"><Copy size={12} /> Copy</button>
+                <button onClick={() => setDag(null)} className="p-1 rounded pn-hover pn-muted"><X size={15} /></button>
+              </div>
+            </div>
+            <pre className="flex-1 overflow-auto p-3 text-[12px] font-mono pn-muted whitespace-pre">{dag.dag}</pre>
+            <div className="px-4 py-2 border-t pn-bd text-[12px] pn-faint">Drop this file in your Airflow <code>dags/</code> folder. It triggers the job via <code>/api/jobs/run-by-name</code>.</div>
+          </div>
+        </div>
+      )}
+
       <div className="flex-1 overflow-y-auto p-4">
         {loading && <div className="pn-faint text-sm flex items-center gap-2"><Loader2 size={14} className="animate-spin" /> Loading…</div>}
         {!loading && jobs.length === 0 && (
@@ -138,6 +155,10 @@ export default function JobsPanel({ onClose }: { onClose: () => void }) {
               <button onClick={() => run(j.id)} disabled={busy === j.id}
                 className="flex items-center gap-1 px-2.5 py-1 rounded bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 text-[12px] disabled:opacity-50">
                 {busy === j.id ? <Loader2 size={13} className="animate-spin" /> : <Play size={13} />} Run now
+              </button>
+              <button onClick={async () => setDag(await airflowDag(j.id))}
+                className="flex items-center gap-1 px-2 py-1 rounded bg-white/5 hover:bg-white/10 pn-muted hover:pn-text text-[12px]" title="Get Airflow DAG to trigger this job remotely">
+                <Workflow size={13} /> Airflow
               </button>
               <button onClick={async () => { await deleteJob(j.id); refresh() }}
                 className="p-1.5 rounded pn-hover text-rose-400" title="Delete job"><Trash2 size={14} /></button>

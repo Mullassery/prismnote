@@ -48,3 +48,9 @@ export async function getJob(id: string) {
   const res = await axios.get(`/api/jobs/${id}`)
   return res.data
 }
+
+export async function airflowDag(id: string): Promise<{ dag: string; filename: string }> {
+  const res = await axios.get(`/api/jobs/${id}/airflow-dag`)
+  return res.data
+}
+

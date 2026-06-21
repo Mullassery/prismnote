@@ -134,6 +134,8 @@ async fn main() -> anyhow::Result<()> {
         .route("/jobs", get(api::list_jobs).post(api::create_job))
         .route("/jobs/:id", get(api::get_job).delete(api::delete_job))
         .route("/jobs/:id/run", post(api::run_job_now))
+        .route("/jobs/run-by-name/:name", post(api::run_job_by_name))
+        .route("/jobs/:id/airflow-dag", get(api::job_airflow_dag))
         .route("/git/status", get(api::git_status))
         .route("/git/init", post(api::git_init))
         .route("/git/clone", post(api::git_clone))

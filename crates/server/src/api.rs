@@ -976,6 +976,83 @@ pub async fn run_job_now(
     }
 }
 
+/// Trigger a job by its name — a stable identifier for remote callers (Airflow,
+/// cron, CI) that don't want to track UUIDs.
+pub async fn run_job_by_name(
+    State(state): State<Arc<AppState>>,
+    Path(name): Path<String>,
+) -> (StatusCode, Json<serde_json::Value>) {
+    let id = {
+        let jobs = state.jobs.lock().await;
+        jobs.iter().find(|j| j.name == name).map(|j| j.id.clone())
+    };
+    match id {
+        Some(id) => match run_job(&state, &id).await {
+            Some(run) => (StatusCode::OK, Json(serde_json::to_value(run).unwrap())),
+            None => (StatusCode::NOT_FOUND, Json(json!({ "error": "job not found" }))),
+        },
+        None => (StatusCode::NOT_FOUND, Json(json!({ "error": format!("no job named '{}'", name) }))),
+    }
+}
+
+/// Generate a ready-to-use Airflow DAG that triggers this job over HTTP. Uses a
+/// BashOperator+curl so no Airflow HTTP connection setup is required — drop the
+/// file in your `dags/` folder and it works.
+pub async fn job_airflow_dag(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+) -> (StatusCode, Json<serde_json::Value>) {
+    let jobs = state.jobs.lock().await;
+    let job = match jobs.iter().find(|j| j.id == id) {
+        Some(j) => j,
+        None => return (StatusCode::NOT_FOUND, Json(json!({ "error": "job not found" }))),
+    };
+    let safe = job
+        .name
+        .chars()
+        .map(|c| if c.is_alphanumeric() { c } else { '_' })
+        .collect::<String>();
+    let schedule = match job.schedule.kind.as_str() {
+        "interval" => format!("timedelta(minutes={})", job.schedule.minutes.unwrap_or(60)),
+        "daily" => {
+            let t = job.schedule.time.clone().unwrap_or_else(|| "09:00".into());
+            let parts: Vec<&str> = t.split(':').collect();
+            format!("\"{} {} * * *\"", parts.get(1).unwrap_or(&"0"), parts.first().unwrap_or(&"9"))
+        }
+        _ => "None".to_string(),
+    };
+    let dag = format!(
+        r#"from datetime import datetime, timedelta
+from airflow import DAG
+from airflow.operators.bash import BashOperator
+
+# Triggers the PrismNote job "{name}" via its stable name.
+# Adjust PRISMNOTE_URL to wherever PrismNote is reachable from your Airflow workers.
+PRISMNOTE_URL = "http://localhost:8000"
+
+with DAG(
+    dag_id="prismnote_{safe}",
+    start_date=datetime(2024, 1, 1),
+    schedule={schedule},
+    catchup=False,
+    tags=["prismnote"],
+) as dag:
+    run = BashOperator(
+        task_id="run_{safe}",
+        bash_command=(
+            'curl -fsS -X POST '
+            f'{{PRISMNOTE_URL}}/api/jobs/run-by-name/{enc}'
+        ),
+    )
+"#,
+        name = job.name,
+        safe = safe,
+        schedule = schedule,
+        enc = job.name.replace(' ', "%20"),
+    );
+    (StatusCode::OK, Json(json!({ "dag": dag, "filename": format!("prismnote_{}.py", safe) })))
+}
+
 // Database connectors
 #[derive(Serialize)]
 pub struct DatabaseList {
