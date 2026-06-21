@@ -142,6 +142,7 @@ async fn main() -> anyhow::Result<()> {
         .route("/git/commit", post(api::git_commit))
         .route("/git/push", post(api::git_push))
         .route("/git/pull", post(api::git_pull))
+        .route("/deploy/artifacts", get(api::deploy_artifacts))
         .route("/terminal/exec", post(api::terminal_exec))
         .route("/notebooks/:id/suggest-libraries", post(api::suggest_libraries))
         .route("/notebooks/:id/libraries/ignore", post(api::ignore_library))

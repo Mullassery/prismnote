@@ -668,6 +668,124 @@ pub async fn ai_edit(
     }
 }
 
+// ── Cloud deployment: generate ready-to-use artifacts ────────────────────────
+// Returns real, copy-pasteable files so PrismNote can be shipped to a container
+// host, Kubernetes, or Fly.io with one command each.
+
+pub async fn deploy_artifacts() -> (StatusCode, Json<serde_json::Value>) {
+    let dockerfile = r#"# syntax=docker/dockerfile:1
+# ---- build frontend ----
+FROM node:20-slim AS web
+WORKDIR /web
+COPY frontend/package*.json ./
+RUN npm ci
+COPY frontend/ ./
+RUN npm run build
+
+# ---- build server ----
+FROM rust:1-slim AS server
+WORKDIR /app
+RUN apt-get update && apt-get install -y pkg-config libssl-dev && rm -rf /var/lib/apt/lists/*
+COPY . .
+COPY --from=web /web/dist ./frontend/dist
+RUN cargo build --release --bin prismnote
+
+# ---- runtime ----
+FROM python:3.11-slim
+RUN pip install --no-cache-dir ipykernel pandas matplotlib rich duckdb
+WORKDIR /app
+COPY --from=server /app/target/release/prismnote /usr/local/bin/prismnote
+COPY --from=web /web/dist ./frontend/dist
+EXPOSE 8000
+CMD ["prismnote"]
+"#;
+
+    let compose = r#"services:
+  prismnote:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - prismnote-data:/root/.prismnote
+    environment:
+      - PRISMNOTE_DIR=/root/.prismnote/notebooks
+    restart: unless-stopped
+volumes:
+  prismnote-data:
+"#;
+
+    let k8s = r#"apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prismnote
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: prismnote } }
+  template:
+    metadata: { labels: { app: prismnote } }
+    spec:
+      containers:
+        - name: prismnote
+          image: ghcr.io/OWNER/prismnote:latest
+          ports: [{ containerPort: 8000 }]
+          resources:
+            requests: { cpu: "250m", memory: "512Mi" }
+            limits: { cpu: "1", memory: "2Gi" }
+          volumeMounts:
+            - { name: data, mountPath: /root/.prismnote }
+      volumes:
+        - name: data
+          persistentVolumeClaim: { claimName: prismnote-data }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: prismnote }
+spec:
+  selector: { app: prismnote }
+  ports: [{ port: 80, targetPort: 8000 }]
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: { name: prismnote-data }
+spec:
+  accessModes: [ReadWriteOnce]
+  resources: { requests: { storage: 5Gi } }
+"#;
+
+    let fly = r#"app = "prismnote"
+primary_region = "iad"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[http_service]
+  internal_port = 8000
+  force_https = true
+  auto_stop_machines = true
+  auto_start_machines = true
+  min_machines_running = 0
+
+[[mounts]]
+  source = "prismnote_data"
+  destination = "/root/.prismnote"
+"#;
+
+    (
+        StatusCode::OK,
+        Json(json!({
+            "Dockerfile": dockerfile,
+            "docker-compose.yml": compose,
+            "k8s.yaml": k8s,
+            "fly.toml": fly,
+            "commands": {
+                "docker": "docker compose up -d",
+                "kubernetes": "kubectl apply -f k8s.yaml",
+                "fly": "fly launch --copy-config --now"
+            }
+        })),
+    )
+}
+
 // ── Git / GitHub integration (real, via the local `git` CLI) ─────────────────
 // Works several ways: init a repo, clone one, stage+commit, push, pull, status.
 // Operates on a directory the user points at (their workspace/notebook folder).

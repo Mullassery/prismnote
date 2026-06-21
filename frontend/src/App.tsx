@@ -21,10 +21,11 @@ import {
   PanelBottom,
   Command as CommandIcon,
 } from 'lucide-react'
-import { Briefcase, GitBranch } from 'lucide-react'
+import { Briefcase, GitBranch, Rocket } from 'lucide-react'
 import Notebook from './components/Notebook'
 import JobsPanel from './components/JobsPanel'
 import GitPanel from './components/GitPanel'
+import DeployPanel from './components/DeployPanel'
 import FileExplorer from './components/FileExplorer'
 import BottomPanel from './components/BottomPanel'
 import AgentPanel from './components/AgentPanel'
@@ -41,6 +42,7 @@ function App() {
   const [searchOpen, setSearchOpen] = useState(false)
   const [jobsOpen, setJobsOpen] = useState(false)
   const [gitOpen, setGitOpen] = useState(false)
+  const [deployOpen, setDeployOpen] = useState(false)
   const [railMenu, setRailMenu] = useState<null | 'settings' | 'accounts'>(null)
   const [overlay, setOverlay] = useState<null | 'command' | 'settings' | 'theme'>(null)
   const { currentNotebookId, notebooks, currentNotebook, createNotebook, addCell, executeCell } = useNotebookStore()
@@ -167,6 +169,7 @@ function App() {
     { id: 'run-all', category: 'Run', title: 'Run All Cells', shortcut: '⌘⇧⏎', icon: <Play size={14} />, run: runAll },
     { id: 'jobs', category: 'Run', title: 'Jobs…', icon: <Briefcase size={14} />, keywords: 'schedule cron airflow', run: () => setJobsOpen(true) },
     { id: 'git', category: 'Run', title: 'Source Control…', icon: <GitBranch size={14} />, keywords: 'git github commit push pull clone', run: () => setGitOpen(true) },
+    { id: 'deploy', category: 'Run', title: 'Deploy to Cloud…', icon: <Rocket size={14} />, keywords: 'docker kubernetes k8s fly deploy cloud', run: () => setDeployOpen(true) },
     { id: 'toggle-files', category: 'View', title: 'Toggle File Explorer', icon: <PanelLeft size={14} />, run: () => togglePanel('files') },
     { id: 'toggle-term', category: 'View', title: 'Toggle Terminal', icon: <PanelBottom size={14} />, run: () => togglePanel('terminal') },
     { id: 'toggle-ai', category: 'View', title: 'Toggle AI Assistant', icon: <PanelRight size={14} />, run: () => togglePanel('ai') },
@@ -218,6 +221,7 @@ function App() {
           {railBtn(panels.ai, () => togglePanel('ai'), 'AI Assistant', Sparkles)}
           {railBtn(gitOpen, () => setGitOpen((v) => !v), 'Source Control', GitBranch)}
           {railBtn(jobsOpen, () => setJobsOpen((v) => !v), 'Jobs', Briefcase)}
+          {railBtn(deployOpen, () => setDeployOpen((v) => !v), 'Deploy to Cloud', Rocket)}
           <div className="flex-1" />
           {railBtn(railMenu === 'accounts', () => setRailMenu(railMenu === 'accounts' ? null : 'accounts'), 'Accounts', CircleUserRound, true)}
           {railBtn(railMenu === 'settings', () => setRailMenu(railMenu === 'settings' ? null : 'settings'), 'Manage', SettingsIcon, true)}
@@ -275,6 +279,7 @@ function App() {
         <div className="flex-1 flex flex-col overflow-hidden min-w-0 relative">
           {jobsOpen && <JobsPanel onClose={() => setJobsOpen(false)} />}
           {gitOpen && <GitPanel onClose={() => setGitOpen(false)} />}
+          {deployOpen && <DeployPanel onClose={() => setDeployOpen(false)} />}
           <div className="flex-1 overflow-hidden">
             {currentNotebookId ? (
               <Notebook />
