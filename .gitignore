@@ -42,5 +42,10 @@ wheels/
 .DS_Store
 Thumbs.db
 
+# The Python build-artifact rules above (lib/, build/, dist/) must never swallow
+# frontend source files.
+!frontend/src/lib/
+!frontend/src/lib/**
+
 # PrismNote
 .prismnote/

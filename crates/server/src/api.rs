@@ -434,13 +434,11 @@ pub struct AIConfigResponse {
 pub async fn get_ai_config(
     State(state): State<Arc<AppState>>,
 ) -> Json<AIConfigResponse> {
-    let configured = state.ai_engine.is_some();
-    let provider = if let Some(_) = &state.ai_engine {
-        Some("configured".to_string())
-    } else {
-        None
-    };
-    Json(AIConfigResponse { configured, provider })
+    let configured = state.ai_engine.read().await.is_some();
+    Json(AIConfigResponse {
+        configured,
+        provider: if configured { Some("configured".to_string()) } else { None },
+    })
 }
 
 #[derive(Deserialize)]
@@ -454,21 +452,34 @@ pub struct AIConfigRequest {
 }
 
 pub async fn set_ai_config(
-    State(_state): State<Arc<AppState>>,
+    State(state): State<Arc<AppState>>,
     Json(req): Json<AIConfigRequest>,
 ) -> (StatusCode, Json<AIConfigResponse>) {
-    // Store config in environment or file
-    if let Ok(_) = std::env::var("PRISMNOTE_AI_PROVIDER") {
-        (StatusCode::OK, Json(AIConfigResponse {
+    // Build the engine from the posted config, swap it in at runtime, and persist
+    // it so the choice survives restarts. This is what makes the AI settings UI
+    // actually take effect (previously it was a no-op).
+    let config = crate::ai::AIConfig {
+        provider: req.provider.clone(),
+        ollama_url: req.ollama_url.clone(),
+        ollama_model: req.ollama_model.clone(),
+        claude_api_key: req.claude_api_key.clone(),
+        openai_api_key: req.openai_api_key.clone(),
+        openai_model: req.openai_model.clone(),
+    };
+
+    if let Ok(json) = serde_json::to_string_pretty(&config) {
+        let _ = std::fs::write(&state.ai_config_path, json);
+    }
+
+    *state.ai_engine.write().await = Some(Arc::new(crate::ai::AIEngine::new(config)));
+
+    (
+        StatusCode::OK,
+        Json(AIConfigResponse {
             configured: true,
             provider: Some(req.provider),
-        }))
-    } else {
-        (StatusCode::BAD_REQUEST, Json(AIConfigResponse {
-            configured: false,
-            provider: None,
-        }))
-    }
+        }),
+    )
 }
 
 #[derive(Serialize)]
@@ -480,7 +491,7 @@ pub async fn ai_explain(
     State(state): State<Arc<AppState>>,
     Json(req): Json<AIRequest>,
 ) -> (StatusCode, Json<AIResponseData>) {
-    match &state.ai_engine {
+    match state.ai_engine.read().await.as_ref() {
         Some(engine) => match engine.explain(&req.code).await {
             Ok(suggestion) => (StatusCode::OK, Json(AIResponseData { suggestion })),
             Err(_) => (
@@ -503,7 +514,7 @@ pub async fn ai_fix(
     State(state): State<Arc<AppState>>,
     Json(req): Json<AIRequest>,
 ) -> (StatusCode, Json<AIResponseData>) {
-    match &state.ai_engine {
+    match state.ai_engine.read().await.as_ref() {
         Some(engine) => {
             let error = req.error.as_deref().unwrap_or("Unknown error");
             match engine.fix_error(&req.code, error).await {
@@ -529,7 +540,7 @@ pub async fn ai_complete(
     State(state): State<Arc<AppState>>,
     Json(req): Json<AIRequest>,
 ) -> (StatusCode, Json<AIResponseData>) {
-    match &state.ai_engine {
+    match state.ai_engine.read().await.as_ref() {
         Some(engine) => match engine.complete_code(&req.code, req.context.as_deref()).await {
             Ok(suggestion) => (StatusCode::OK, Json(AIResponseData { suggestion })),
             Err(_) => (
@@ -635,7 +646,7 @@ pub async fn ai_edit(
     State(state): State<Arc<AppState>>,
     Json(req): Json<AIEditRequest>,
 ) -> (StatusCode, Json<AIResponseData>) {
-    match &state.ai_engine {
+    match state.ai_engine.read().await.as_ref() {
         Some(engine) => match engine
             .transform(&req.code, &req.instruction, req.context.as_deref())
             .await
@@ -663,11 +674,29 @@ pub struct DatabaseList {
     pub databases: Vec<crate::db::DatabaseConnection>,
 }
 
+fn databases_path() -> String {
+    format!("{}/.prismnote/databases.json", default_dir())
+}
+
+fn load_databases() -> Vec<crate::db::DatabaseConnection> {
+    std::fs::read_to_string(databases_path())
+        .ok()
+        .and_then(|t| serde_json::from_str(&t).ok())
+        .unwrap_or_default()
+}
+
+fn save_databases(dbs: &[crate::db::DatabaseConnection]) {
+    if let Ok(json) = serde_json::to_string_pretty(dbs) {
+        let path = databases_path();
+        if let Some(dir) = std::path::Path::new(&path).parent() {
+            let _ = std::fs::create_dir_all(dir);
+        }
+        let _ = std::fs::write(path, json);
+    }
+}
+
 pub async fn list_databases() -> Json<DatabaseList> {
-    // TODO: Load from ~/.prismnote/databases.json
-    Json(DatabaseList {
-        databases: vec![],
-    })
+    Json(DatabaseList { databases: load_databases() })
 }
 
 pub async fn create_database(
@@ -680,7 +709,9 @@ pub async fn create_database(
         return (StatusCode::BAD_REQUEST, Json(req));
     }
 
-    // TODO: Save to ~/.prismnote/databases.json
+    let mut dbs = load_databases();
+    dbs.push(req.clone());
+    save_databases(&dbs);
     (StatusCode::CREATED, Json(req))
 }
 
@@ -719,8 +750,13 @@ pub async fn execute_database_query(
     )
 }
 
-pub async fn delete_database(Path(_id): Path<String>) -> StatusCode {
-    // TODO: Delete from ~/.prismnote/databases.json
+pub async fn delete_database(Path(id): Path<String>) -> StatusCode {
+    let mut dbs = load_databases();
+    let before = dbs.len();
+    dbs.retain(|d| d.id != id);
+    if dbs.len() != before {
+        save_databases(&dbs);
+    }
     StatusCode::NO_CONTENT
 }
 
@@ -730,7 +766,7 @@ pub async fn suggest_libraries(
     Path(_id): Path<String>,
     Json(req): Json<crate::library_advisor::SuggestLibrariesRequest>,
 ) -> (StatusCode, Json<crate::library_advisor::SuggestionsResponse>) {
-    let advisor = crate::library_advisor::LibraryAdvisor::new(state.ai_engine.clone());
+    let advisor = crate::library_advisor::LibraryAdvisor::new(state.ai_engine.read().await.clone());
 
     match advisor.suggest_libraries(
         &req.notebook_code,

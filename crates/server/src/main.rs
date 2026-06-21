@@ -43,7 +43,10 @@ use tracing_subscriber;
 
 pub struct AppState {
     notebooks_dir: String,
-    ai_engine: Option<Arc<ai::AIEngine>>,
+    /// Runtime-mutable so AI settings saved from the UI take effect immediately.
+    ai_engine: tokio::sync::RwLock<Option<Arc<ai::AIEngine>>>,
+    /// Where the AI config is persisted (so it survives restarts).
+    ai_config_path: String,
     kernel: tokio::sync::Mutex<Option<kernel::KernelManager>>,
     /// Live interpreter PID (0 = none), used to interrupt a running cell.
     kernel_pid: std::sync::Arc<std::sync::atomic::AtomicI32>,
@@ -58,7 +61,11 @@ async fn main() -> anyhow::Result<()> {
 
     std::fs::create_dir_all(&notebooks_dir)?;
 
-    // Try to initialize AI engine from environment variables
+    let prismnote_home = format!("{}/.prismnote", dirs::home_dir().unwrap().display());
+    std::fs::create_dir_all(&prismnote_home).ok();
+    let ai_config_path = format!("{}/ai_config.json", prismnote_home);
+
+    // AI engine: prefer env vars; otherwise load a previously-saved UI config.
     let ai_engine = if let Ok(provider) = std::env::var("PRISMNOTE_AI_PROVIDER") {
         let config = ai::AIConfig {
             provider,
@@ -69,6 +76,11 @@ async fn main() -> anyhow::Result<()> {
             openai_model: std::env::var("PRISMNOTE_OPENAI_MODEL").ok(),
         };
         Some(Arc::new(ai::AIEngine::new(config)))
+    } else if let Ok(text) = std::fs::read_to_string(&ai_config_path) {
+        match serde_json::from_str::<ai::AIConfig>(&text) {
+            Ok(config) => Some(Arc::new(ai::AIEngine::new(config))),
+            Err(_) => None,
+        }
     } else {
         None
     };
@@ -92,7 +104,8 @@ async fn main() -> anyhow::Result<()> {
 
     let state = Arc::new(AppState {
         notebooks_dir,
-        ai_engine,
+        ai_engine: tokio::sync::RwLock::new(ai_engine),
+        ai_config_path,
         kernel: tokio::sync::Mutex::new(kernel),
         kernel_pid,
     });
