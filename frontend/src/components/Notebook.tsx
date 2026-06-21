@@ -2,11 +2,21 @@ import { useState } from 'react'
 import { useNotebookStore } from '../hooks/useNotebook'
 import Cell from './Cell'
 import Toolbar from './Toolbar'
-import { Plus, FileCode, Code2, Type } from 'lucide-react'
+import { Plus, FileCode, Code2, Type, Minus, ChevronDown } from 'lucide-react'
+import { useFontSize } from '../hooks/useFontSize'
 
 export default function Notebook() {
   const { currentNotebook, addCell } = useNotebookStore()
   const [selectedCellIndex, setSelectedCellIndex] = useState<number | null>(null)
+  const [collapsed, setCollapsed] = useState(false)
+  // Code editor font, live across all cells via a window event each Cell listens to.
+  const { size: codeFont, inc, dec } = useFontSize('pn-code-size', 16, 9, 40)
+  const setFont = (fn: () => void) => {
+    fn()
+    // read back the just-persisted value and broadcast it
+    const v = parseInt(localStorage.getItem('pn-code-size') || '16', 10)
+    window.dispatchEvent(new CustomEvent('pn-code-font', { detail: v }))
+  }
 
   if (!currentNotebook) {
     return <div className="p-4">No notebook selected</div>
@@ -40,13 +50,22 @@ export default function Notebook() {
     <div className="h-full flex flex-col pn-solid-bg overflow-hidden">
       {/* breadcrumb */}
       <div className="h-7 flex items-center gap-1.5 px-3 text-[12px] pn-muted border-b pn-bd pn-surface/40">
+        <button onClick={() => setCollapsed((c) => !c)} className="p-0.5 rounded pn-hover" title={collapsed ? 'Expand editor' : 'Collapse editor'}>
+          <ChevronDown size={13} className={collapsed ? '-rotate-90 transition-transform' : 'transition-transform'} />
+        </button>
         <FileCode size={13} className="text-yellow-400" />
         <span className="pn-muted">{currentNotebook.name}.ipynb</span>
         <span className="pn-faint">— {currentNotebook.cells.length} cells</span>
+        <div className="flex-1" />
+        <span className="pn-faint mr-1">code font</span>
+        <button onClick={() => setFont(dec)} title="Decrease code font" className="p-0.5 rounded pn-hover"><Minus size={12} /></button>
+        <span className="tabular-nums w-5 text-center">{codeFont}</span>
+        <button onClick={() => setFont(inc)} title="Increase code font" className="p-0.5 rounded pn-hover"><Plus size={12} /></button>
       </div>
 
       <Toolbar />
 
+      {!collapsed && (
       <div className="flex-1 overflow-y-auto p-4 min-w-0">
         <div className="w-full min-w-0">
           <Inserter at={0} />
@@ -80,6 +99,7 @@ export default function Notebook() {
           </div>
         </div>
       </div>
+      )}
     </div>
   )
 }

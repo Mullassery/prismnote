@@ -12,9 +12,13 @@ import {
   FileText,
   FileSpreadsheet,
   FileImage,
+  Plus,
+  Minus,
+  ChevronDown,
 } from 'lucide-react'
 import { useWorkspace } from '../hooks/useWorkspace'
 import { useNotebookStore } from '../hooks/useNotebook'
+import { useFontSize } from '../hooks/useFontSize'
 import ServerExplorer from './ServerExplorer'
 
 interface Entry {
@@ -88,6 +92,8 @@ export default function FileExplorer() {
   // isn't available (e.g. embedded/automated browsers), or on user request.
   const [serverMode, setServerMode] = useState(!supported)
   const [selected, setSelected] = useState<string>('')
+  const [collapsed, setCollapsed] = useState(false)
+  const { size: filesFont, inc, dec } = useFontSize('pn-files-font', 13)
 
   useEffect(() => {
     const close = () => setMenu(null)
@@ -143,10 +149,19 @@ export default function FileExplorer() {
 
   return (
     <aside className="w-64 shrink-0 pn-surface border-r pn-bd flex flex-col overflow-hidden select-none">
-      <div className="h-8 flex items-center px-3 text-[11px] font-semibold uppercase tracking-wider pn-muted">
-        Explorer
+      <div className="h-8 flex items-center px-2 text-[11px] font-semibold uppercase tracking-wider pn-muted">
+        <button onClick={() => setCollapsed((c) => !c)} className="p-0.5 rounded pn-hover" title={collapsed ? 'Expand' : 'Collapse'}>
+          <ChevronDown size={13} className={collapsed ? '-rotate-90 transition-transform' : 'transition-transform'} />
+        </button>
+        <span className="ml-1">Explorer</span>
+        <div className="flex-1" />
+        <button onClick={dec} title="Decrease font" className="p-0.5 rounded pn-hover"><Minus size={11} /></button>
+        <span className="tabular-nums text-[10px] w-4 text-center normal-case">{filesFont}</span>
+        <button onClick={inc} title="Increase font" className="p-0.5 rounded pn-hover"><Plus size={11} /></button>
       </div>
 
+      {collapsed ? null : (
+      <div className="flex-1 flex flex-col overflow-hidden" style={{ fontSize: filesFont }}>
       {serverMode && !rootHandle ? (
         <ServerExplorer />
       ) : !rootHandle ? (
@@ -188,6 +203,8 @@ export default function FileExplorer() {
             />
           </Section>
         </div>
+      )}
+      </div>
       )}
 
       {/* context menu */}

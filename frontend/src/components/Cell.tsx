@@ -48,6 +48,16 @@ export default function Cell({ cell, cellIndex }: CellProps) {
   const sourceText = Array.isArray(cell.source) ? cell.source.join('') : cell.source
   const cellError = cell.cell_type === 'code' ? errorFromOutputs(cell.outputs) : null
 
+  // Live code-font updates broadcast from the notebook header.
+  useEffect(() => {
+    const onFont = (e: Event) => {
+      const size = (e as CustomEvent).detail as number
+      editorRef.current?.updateOptions?.({ fontSize: size })
+    }
+    window.addEventListener('pn-code-font', onFont)
+    return () => window.removeEventListener('pn-code-font', onFont)
+  }, [])
+
   // Mark the offending line/column in the editor (red squiggle + gutter) when a
   // cell errors, and clear it once the error is gone.
   useEffect(() => {
@@ -273,7 +283,7 @@ export default function Cell({ cell, cellIndex }: CellProps) {
               minimap: { enabled: false },
               scrollBeyondLastLine: false,
               readOnly: true,
-              fontSize: parseInt(localStorage.getItem('pn-code-size') || '20', 10),
+              fontSize: parseInt(localStorage.getItem('pn-code-size') || '16', 10),
             }}
           />
         </div>
@@ -299,7 +309,7 @@ export default function Cell({ cell, cellIndex }: CellProps) {
               minimap: { enabled: false },
               scrollBeyondLastLine: false,
               lineNumbers: 'on',
-              fontSize: parseInt(localStorage.getItem('pn-code-size') || '20', 10),
+              fontSize: parseInt(localStorage.getItem('pn-code-size') || '16', 10),
               inlineSuggest: { enabled: true },
             }}
           />
