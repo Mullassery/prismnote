@@ -1,7 +1,44 @@
 import MDPreview from '@uiw/react-markdown-preview'
+import { useState } from 'react'
+import { AlertTriangle, ChevronRight } from 'lucide-react'
+import { parseTraceback } from '../lib/pyerror'
 
 interface OutputProps {
   output: any
+}
+
+function ErrorOutput({ output }: { output: any }) {
+  const [showTrace, setShowTrace] = useState(false)
+  const raw = Array.isArray(output.traceback)
+    ? output.traceback.join('\n')
+    : Array.isArray(output.text)
+    ? output.text.join('')
+    : output.text || ''
+  const parsed = parseTraceback(raw)
+  return (
+    <div className="bg-red-900/20 border border-red-700/60 rounded p-3 text-sm">
+      <div className="flex items-start gap-2 text-red-300">
+        <AlertTriangle size={16} className="mt-0.5 shrink-0" />
+        <div className="min-w-0">
+          <div className="font-semibold">
+            {parsed.ename}
+            {parsed.line ? <span className="font-normal text-red-300/80"> · line {parsed.line}{parsed.col ? `, col ${parsed.col}` : ''}</span> : null}
+          </div>
+          <div className="text-red-100/90 mt-0.5 leading-relaxed">{parsed.friendly}</div>
+        </div>
+      </div>
+      <button
+        onClick={() => setShowTrace((s) => !s)}
+        className="mt-2 flex items-center gap-1 text-[12px] text-red-300/80 hover:text-red-200"
+      >
+        <ChevronRight size={13} className={showTrace ? 'rotate-90 transition-transform' : 'transition-transform'} />
+        {showTrace ? 'Hide' : 'Show'} full traceback
+      </button>
+      {showTrace && (
+        <pre className="mt-1 font-mono text-[12px] text-red-300/90 overflow-x-auto whitespace-pre">{raw}</pre>
+      )}
+    </div>
+  )
 }
 
 export default function Output({ output }: OutputProps) {
@@ -68,13 +105,7 @@ export default function Output({ output }: OutputProps) {
         </div>
       )
     case 'error':
-      return (
-        <div className="bg-red-900 bg-opacity-20 border border-red-700 p-3 rounded text-red-300 text-sm">
-          <pre className="font-mono overflow-x-auto">
-            {Array.isArray(output.traceback) ? output.traceback.join('\n') : output.text}
-          </pre>
-        </div>
-      )
+      return <ErrorOutput output={output} />
     default:
       return null
   }

@@ -1,11 +1,13 @@
 import Editor, { DiffEditor } from '@monaco-editor/react'
 import MDPreview from '@uiw/react-markdown-preview'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Play, Trash2, Sparkles, Wand2, Check, X, Loader2, Square } from 'lucide-react'
 import Output from './Output'
 import { useNotebookStore } from '../hooks/useNotebook'
 import { aiEdit, aiFix, aiExplain } from '../api/ai'
 import { interruptKernel } from '../api/kernel'
+import { registerOllamaCompletions } from '../api/autocomplete'
+import { parseTraceback } from '../lib/pyerror'
 
 interface CellProps {
   cell: any
@@ -40,9 +42,39 @@ export default function Cell({ cell, cellIndex }: CellProps) {
   const [proposal, setProposal] = useState<string | null>(null) // diff preview target
   const [explanation, setExplanation] = useState<string | null>(null)
   const promptRef = useRef<HTMLInputElement>(null)
+  const editorRef = useRef<any>(null)
+  const monacoRef = useRef<any>(null)
 
   const sourceText = Array.isArray(cell.source) ? cell.source.join('') : cell.source
   const cellError = cell.cell_type === 'code' ? errorFromOutputs(cell.outputs) : null
+
+  // Mark the offending line/column in the editor (red squiggle + gutter) when a
+  // cell errors, and clear it once the error is gone.
+  useEffect(() => {
+    const editor = editorRef.current
+    const monaco = monacoRef.current
+    if (!editor || !monaco) return
+    const model = editor.getModel()
+    if (!model) return
+    if (cellError) {
+      const { ename, line, col, friendly } = parseTraceback(cellError)
+      if (line) {
+        const startCol = col ?? 1
+        monaco.editor.setModelMarkers(model, 'prismnote', [
+          {
+            startLineNumber: line,
+            startColumn: startCol,
+            endLineNumber: line,
+            endColumn: col ? startCol + 1 : model.getLineMaxColumn(Math.min(line, model.getLineCount())),
+            message: `${ename}: ${friendly}`,
+            severity: monaco.MarkerSeverity.Error,
+          },
+        ])
+        return
+      }
+    }
+    monaco.editor.setModelMarkers(model, 'prismnote', [])
+  }, [cellError])
 
   const handleRun = async () => {
     setIsExecuting(true)
@@ -254,7 +286,10 @@ export default function Cell({ cell, cellIndex }: CellProps) {
             language="python"
             value={sourceText}
             onMount={(editor, monaco) => {
+              editorRef.current = editor
+              monacoRef.current = monaco
               editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyK, openAi)
+              registerOllamaCompletions(monaco) // ghost-text suggestions when Ollama is up
             }}
             // split *keeping* the trailing \n on each line so join('') round-trips
             // (otherwise newlines are lost and the cursor can't move to a new line)
@@ -265,6 +300,7 @@ export default function Cell({ cell, cellIndex }: CellProps) {
               scrollBeyondLastLine: false,
               lineNumbers: 'on',
               fontSize: parseInt(localStorage.getItem('pn-code-size') || '20', 10),
+              inlineSuggest: { enabled: true },
             }}
           />
         </div>
