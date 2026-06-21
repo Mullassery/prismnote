@@ -1,10 +1,11 @@
 import Editor, { DiffEditor } from '@monaco-editor/react'
 import MDPreview from '@uiw/react-markdown-preview'
 import { useRef, useState } from 'react'
-import { Play, Trash2, Sparkles, Wand2, Check, X, Loader2 } from 'lucide-react'
+import { Play, Trash2, Sparkles, Wand2, Check, X, Loader2, Square } from 'lucide-react'
 import Output from './Output'
 import { useNotebookStore } from '../hooks/useNotebook'
 import { aiEdit, aiFix, aiExplain } from '../api/ai'
+import { interruptKernel } from '../api/kernel'
 
 interface CellProps {
   cell: any
@@ -152,14 +153,23 @@ export default function Cell({ cell, cellIndex }: CellProps) {
               >
                 <Sparkles size={16} />
               </button>
-              <button
-                onClick={handleRun}
-                disabled={isExecuting}
-                className="p-1 rounded pn-hover disabled:opacity-50"
-                title="Shift+Enter"
-              >
-                <Play size={16} />
-              </button>
+              {isExecuting ? (
+                <button
+                  onClick={() => interruptKernel()}
+                  className="p-1 rounded pn-hover text-rose-400"
+                  title="Stop (interrupt kernel)"
+                >
+                  <Square size={15} fill="currentColor" />
+                </button>
+              ) : (
+                <button
+                  onClick={handleRun}
+                  className="p-1 rounded pn-hover"
+                  title="Shift+Enter"
+                >
+                  <Play size={16} />
+                </button>
+              )}
             </>
           )}
           <button

@@ -121,6 +121,119 @@ pub async fn update_notebook(
     }
 }
 
+/// Interrupt the currently running cell by sending SIGINT to the interpreter
+/// (raises KeyboardInterrupt in the user's code). Doesn't take the kernel lock,
+/// so it works while an execute() is in flight holding that lock.
+pub async fn kernel_interrupt(State(state): State<Arc<AppState>>) -> StatusCode {
+    let pid = state.kernel_pid.load(std::sync::atomic::Ordering::SeqCst);
+    if pid <= 0 {
+        return StatusCode::SERVICE_UNAVAILABLE;
+    }
+    #[cfg(unix)]
+    {
+        let _ = tokio::process::Command::new("kill")
+            .arg("-INT")
+            .arg(pid.to_string())
+            .status()
+            .await;
+        StatusCode::OK
+    }
+    #[cfg(not(unix))]
+    {
+        StatusCode::NOT_IMPLEMENTED
+    }
+}
+
+/// Restart the kernel, clearing all variables/imports.
+pub async fn kernel_restart(State(state): State<Arc<AppState>>) -> StatusCode {
+    let mut kernel = state.kernel.lock().await;
+    match kernel.as_mut() {
+        Some(k) => match k.restart() {
+            Ok(()) => StatusCode::OK,
+            Err(_) => StatusCode::INTERNAL_SERVER_ERROR,
+        },
+        None => StatusCode::SERVICE_UNAVAILABLE,
+    }
+}
+
+/// Per-cell interpreter selected by a leading magic line.
+enum Magic {
+    Python,
+    Sql,
+    Shell,
+    Markdown,
+}
+
+/// Inspect the first line for a `%magic` (or `--sql` / `!`) and return the
+/// interpreter plus the body to run (with the magic line stripped).
+fn parse_magic(code: &str) -> (Magic, String) {
+    let trimmed = code.trim_start();
+    let first_line = trimmed.lines().next().unwrap_or("").trim();
+    let rest = || trimmed.splitn(2, '\n').nth(1).unwrap_or("").to_string();
+
+    if first_line.eq_ignore_ascii_case("%sql") {
+        (Magic::Sql, rest())
+    } else if trimmed.starts_with("--sql") {
+        (Magic::Sql, trimmed.to_string()) // --sql is a valid SQL comment; keep it
+    } else if first_line.eq_ignore_ascii_case("%sh") || first_line.eq_ignore_ascii_case("%bash") {
+        (Magic::Shell, rest())
+    } else if let Some(cmd) = first_line.strip_prefix('!') {
+        // `!cmd` shell escape (single line)
+        (Magic::Shell, cmd.to_string())
+    } else if first_line.eq_ignore_ascii_case("%md") || first_line.eq_ignore_ascii_case("%markdown") {
+        (Magic::Markdown, rest())
+    } else if first_line.eq_ignore_ascii_case("%python") || first_line.eq_ignore_ascii_case("%py") {
+        (Magic::Python, rest())
+    } else {
+        (Magic::Python, code.to_string())
+    }
+}
+
+/// Run a shell command and return its combined output as a stream object.
+async fn run_shell_cell(cmd: &str) -> anyhow::Result<Vec<serde_json::Value>> {
+    let out = tokio::process::Command::new("sh")
+        .arg("-c")
+        .arg(cmd)
+        .output()
+        .await?;
+    let mut text = String::from_utf8_lossy(&out.stdout).to_string();
+    let err = String::from_utf8_lossy(&out.stderr);
+    if !err.is_empty() {
+        if !text.is_empty() && !text.ends_with('\n') {
+            text.push('\n');
+        }
+        text.push_str(&err);
+    }
+    let name = if out.status.success() { "stdout" } else { "stderr" };
+    Ok(vec![serde_json::json!({
+        "output_type": "stream",
+        "name": name,
+        "text": [text],
+    })])
+}
+
+/// Convert a kernel JSON output object (Jupyter-style) into our `Output` model,
+/// preserving MIME bundles (`data`) and normalising `text` to a string list.
+fn value_to_output(out: serde_json::Value) -> Output {
+    let text = match out.get("text") {
+        Some(serde_json::Value::Array(a)) => {
+            Some(a.iter().filter_map(|v| v.as_str().map(String::from)).collect())
+        }
+        Some(serde_json::Value::String(s)) => Some(vec![s.clone()]),
+        _ => None,
+    };
+    Output {
+        output_type: out
+            .get("output_type")
+            .and_then(|v| v.as_str())
+            .unwrap_or("stream")
+            .to_string(),
+        data: out.get("data").cloned(),
+        text,
+        metadata: out.get("metadata").cloned(),
+    }
+}
+
 pub async fn execute_cell(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
@@ -194,37 +307,41 @@ pub async fn execute_cell(
     let mut kernel = state.kernel.lock().await;
     match kernel.as_mut() {
         Some(k) => {
-            // Check for SQL cell marker
-            let is_sql_cell = code.trim().starts_with("--sql") || code.trim().starts_with("%sql");
-
-            let result = if is_sql_cell {
-                execute_sql_cell(&code, &state).await
-            } else {
-                match k.execute(&code).await {
+            // Route the cell by its leading magic (Zeppelin-style interpreters).
+            let (magic, body) = parse_magic(&code);
+            let result = match magic {
+                Magic::Sql => {
+                    // Run SQL in-process via DuckDB inside the shared Python kernel.
+                    // DuckDB can query pandas DataFrames defined in other cells by
+                    // name, so `%sql SELECT * FROM my_df` just works. Result is a
+                    // DataFrame -> renders as an HTML table (chartable downstream).
+                    let q = serde_json::to_string(&body).unwrap_or_else(|_| "\"\"".to_string());
+                    let py = format!(
+                        "try:\n    import duckdb as _ddb\nexcept ImportError:\n    raise ImportError('%sql needs DuckDB — install it: pip install duckdb')\nimport json as _json\n_ddb.sql(_json.loads({})).df()",
+                        q
+                    );
+                    match k.execute(&py).await {
+                        Ok((_s, o)) => Ok(o),
+                        Err(e) => Err(e),
+                    }
+                }
+                Magic::Shell => run_shell_cell(&body).await,
+                Magic::Markdown => Ok(vec![serde_json::json!({
+                    "output_type": "display_data",
+                    "data": {"text/markdown": body},
+                    "metadata": {},
+                })]),
+                Magic::Python => match k.execute(&body).await {
                     Ok((_stdout, outputs)) => Ok(outputs),
                     Err(e) => Err(e),
-                }
+                },
             };
 
             match result {
                 Ok(outputs) => {
                     let response = ExecuteCellResponse {
                         execution_count: k.execution_count(),
-                        outputs: outputs
-                            .into_iter()
-                            .map(|out| Output {
-                                output_type: out.get("output_type")
-                                    .and_then(|v| v.as_str())
-                                    .unwrap_or("stream")
-                                    .to_string(),
-                                data: out.get("text").cloned(),
-                                text: out
-                                    .get("text")
-                                    .and_then(|v| v.as_str())
-                                    .map(|s| vec![s.to_string()]),
-                                metadata: None,
-                            })
-                            .collect(),
+                        outputs: outputs.into_iter().map(value_to_output).collect(),
                     };
                     (StatusCode::OK, Json(response))
                 }

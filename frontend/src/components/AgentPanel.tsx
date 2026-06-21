@@ -15,8 +15,10 @@ import {
   Plug,
   Download,
   RefreshCw,
+  Minus,
 } from 'lucide-react'
 import { useNotebookStore } from '../hooks/useNotebook'
+import { useFontSize } from '../hooks/useFontSize'
 
 const OLLAMA = 'http://localhost:11434'
 
@@ -37,13 +39,27 @@ interface Message {
   actions?: AgentAction[]
 }
 
-const planSystem = `You are PrismNote's PLANNING agent. Read the user's request and the current notebook, then reply with a short, numbered plan describing the approach. Do NOT write the final code or take actions yet — planning only. Be concise.`
+// Persona prepended to every request so ANY Ollama model behaves like a patient
+// Python teacher — explaining the "why", flagging pitfalls, and offering a short
+// contextual tip/trick. Kept model-agnostic so it works across local models.
+const teacherPersona = `You are "Prism", a friendly and patient Python data-science teacher embedded in a notebook.
+Teaching style (always):
+- Explain the *why*, not just the *what*, in plain language.
+- Prefer clear, idiomatic, Pythonic code (pandas/numpy where apt) and name the idiom you used.
+- After your main answer, add a short "💡 Tip:" line with one relevant tip, trick, or gotcha tailored to the user's code/context (e.g. vectorization, chaining, f-strings, .loc vs .iloc, list comprehensions).
+- Keep tips practical and specific to what the user is doing — never generic filler.`
 
-const actSystem = `You are PrismNote's CODING agent for a Python data-science notebook. Briefly explain what you'll do, then emit actions the notebook can execute. Use EXACTLY these tags:
+const planSystem = `${teacherPersona}
+
+You are PrismNote's PLANNING agent. Read the user's request and the current notebook, then reply with a short, numbered plan describing the approach. Do NOT write the final code or take actions yet — planning only. Be concise, and end with a "💡 Tip:" line.`
+
+const actSystem = `${teacherPersona}
+
+You are PrismNote's CODING agent for a Python data-science notebook. Briefly explain what you'll do (teaching the why), then emit actions the notebook can execute. Use EXACTLY these tags:
 - Add a code cell:  <action type="add_cell">PYTHON CODE</action>
 - Edit cell N:      <action type="edit_cell" index="N">PYTHON CODE</action>
 - Run cell N:       <action type="run_cell" index="N"/>
-Only emit actions you are confident about. Keep code runnable and self-contained.`
+Only emit actions you are confident about. Keep code runnable and self-contained. After the actions, add a short "💡 Tip:" line relevant to the code.`
 
 function parseActions(text: string): AgentAction[] {
   const re = /<action\s+type="(add_cell|edit_cell|run_cell)"(?:\s+index="(\d+)")?\s*(?:\/>|>([\s\S]*?)<\/action>)/g
@@ -71,6 +87,7 @@ export default function AgentPanel({ onClose }: { onClose: () => void }) {
   const [mode, setMode] = useState<Mode>('plan')
   const [models, setModels] = useState<string[]>([])
   const [model, setModel] = useState('')
+  const { size: fontSize, inc, dec } = useFontSize('pn-ai-font', 13)
   const [modelOpen, setModelOpen] = useState(false)
   const [connected, setConnected] = useState<boolean | null>(null)
   const [messages, setMessages] = useState<Message[]>([])
@@ -226,6 +243,9 @@ export default function AgentPanel({ onClose }: { onClose: () => void }) {
           >
             <Plug size={11} /> {connected === false ? 'offline' : connected ? 'Ollama' : '…'}
           </span>
+          <button onClick={dec} title="Decrease font size" className="pn-muted hover:pn-text p-1 rounded hover:bg-white/5"><Minus size={12} /></button>
+          <span className="text-[10px] tabular-nums w-4 text-center pn-faint" title="Panel font size">{fontSize}</span>
+          <button onClick={inc} title="Increase font size" className="pn-muted hover:pn-text p-1 rounded hover:bg-white/5"><Plus size={12} /></button>
           <button onClick={onClose} className="pn-muted hover:pn-text p-1 rounded hover:bg-white/5">
             <X size={14} />
           </button>
@@ -280,7 +300,7 @@ export default function AgentPanel({ onClose }: { onClose: () => void }) {
       </div>
 
       {/* conversation */}
-      <div className="flex-1 overflow-y-auto p-3 space-y-4 min-w-0">
+      <div className="flex-1 overflow-y-auto p-3 space-y-4 min-w-0" style={{ fontSize }}>
         {/* Ollama not detected → install guidance */}
         {connected === false && (
           <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3">

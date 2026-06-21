@@ -1,8 +1,23 @@
+import MDPreview from '@uiw/react-markdown-preview'
+
 interface OutputProps {
   output: any
 }
 
 export default function Output({ output }: OutputProps) {
+  // %md magic and any text/markdown bundle render as formatted markdown.
+  const md = output.data?.['text/markdown']
+  if (md) {
+    return (
+      <div className="bg-slate-800 p-3 rounded">
+        <MDPreview
+          source={Array.isArray(md) ? md.join('') : md}
+          style={{ backgroundColor: 'transparent', color: '#e5e7eb' }}
+        />
+      </div>
+    )
+  }
+
   switch (output.output_type) {
     case 'stream':
       return (

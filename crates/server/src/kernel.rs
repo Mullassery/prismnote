@@ -1,6 +1,8 @@
 use anyhow::{anyhow, Result};
 use serde_json::{json, Value};
 use std::process::Stdio;
+use std::sync::atomic::{AtomicI32, Ordering};
+use std::sync::Arc;
 use std::time::Duration;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::{Child, ChildStdin, ChildStdout, Command};
@@ -13,21 +15,32 @@ use uuid::Uuid;
 /// `__PRISM_RESULT__{...}` line carrying captured stdout/stderr, the repr of the
 /// last expression, and any traceback.
 const DRIVER: &str = r#"
-import sys, json, io, ast, traceback, contextlib
+import sys, json, io, ast, base64, traceback, contextlib, signal
 
 _ns = {"__name__": "__main__"}
 
-# Pretty output by default: rich's pretty-printer makes reprs of dicts/lists/
-# objects readable, and pandas gets sane display widths. All optional — a missing
-# library must never stop the kernel from starting.
+# Ensure SIGINT raises KeyboardInterrupt even if we inherited SIG_IGN from a
+# backgrounded parent (nohup/&/service) — this is what makes "stop cell" work.
+try:
+    signal.signal(signal.SIGINT, signal.default_int_handler)
+except Exception:
+    pass
+
+# Pretty output + rich rendering by default. All optional — a missing library
+# must never stop the kernel from starting.
 def _bootstrap():
+    try:
+        import matplotlib
+        matplotlib.use("Agg")   # headless: figures are captured, never displayed
+    except Exception:
+        pass
     try:
         import rich
         from rich import pretty
-        pretty.install()                      # auto-pretty repr in the REPL
+        pretty.install()
         _ns["rich"] = rich
         from rich.pretty import pprint as _pp
-        _ns["pprint"] = _pp                   # `pprint(obj)` available everywhere
+        _ns["pprint"] = _pp
     except Exception:
         from pprint import pprint as _pp
         _ns["pprint"] = _pp
@@ -41,27 +54,79 @@ def _bootstrap():
 
 _bootstrap()
 
+def _mime_bundle(val):
+    """Build a Jupyter-style MIME bundle for a value (text + optional HTML)."""
+    bundle = {"text/plain": repr(val)}
+    fn = getattr(val, "_repr_html_", None)   # pandas DataFrame, etc.
+    if callable(fn):
+        try:
+            html = fn()
+            if html:
+                bundle["text/html"] = html
+        except Exception:
+            pass
+    return bundle
+
+def _capture_figures(outputs):
+    """Emit any open matplotlib figures as image/png display_data, then clear."""
+    try:
+        import matplotlib.pyplot as plt
+    except Exception:
+        return
+    try:
+        for num in plt.get_fignums():
+            fig = plt.figure(num)
+            buf = io.BytesIO()
+            fig.savefig(buf, format="png", bbox_inches="tight", dpi=110)
+            buf.seek(0)
+            outputs.append({
+                "output_type": "display_data",
+                "data": {"image/png": base64.b64encode(buf.read()).decode("ascii")},
+                "metadata": {},
+            })
+        plt.close("all")
+    except Exception:
+        pass
+
 def _run(src):
+    outputs = []
     out, err = io.StringIO(), io.StringIO()
-    res = {"stdout": "", "stderr": "", "result": None, "error": None}
     try:
         tree = ast.parse(src, mode="exec")
         last = None
         if tree.body and isinstance(tree.body[-1], ast.Expr):
             last = ast.Expression(tree.body.pop().value)
+        val = None
         with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
             if tree.body:
                 exec(compile(tree, "<cell>", "exec"), _ns)
             if last is not None:
                 val = eval(compile(last, "<cell>", "eval"), _ns)
-                if val is not None:
-                    res["result"] = repr(val)
+        so, se = out.getvalue(), err.getvalue()
+        if so:
+            outputs.append({"output_type": "stream", "name": "stdout", "text": [so]})
+        if se:
+            outputs.append({"output_type": "stream", "name": "stderr", "text": [se]})
+        _capture_figures(outputs)
+        if last is not None and val is not None:
+            outputs.append({"output_type": "execute_result", "data": _mime_bundle(val), "metadata": {}})
     except SystemExit:
-        pass
+        so = out.getvalue()
+        if so:
+            outputs.append({"output_type": "stream", "name": "stdout", "text": [so]})
     except BaseException:
-        res["error"] = traceback.format_exc()
-    res["stdout"], res["stderr"] = out.getvalue(), err.getvalue()
-    return res
+        so = out.getvalue()
+        if so:
+            outputs.append({"output_type": "stream", "name": "stdout", "text": [so]})
+        tb = traceback.format_exc()
+        outputs.append({
+            "output_type": "error",
+            "ename": type(sys.exc_info()[1]).__name__,
+            "evalue": str(sys.exc_info()[1]),
+            "traceback": tb.splitlines(),
+            "text": [tb],
+        })
+    return outputs
 
 def _main():
     for line in sys.stdin:
@@ -72,8 +137,8 @@ def _main():
             src = json.loads(line)
         except Exception:
             continue
-        res = _run(src)
-        sys.stdout.write("__PRISM_RESULT__" + json.dumps(res) + "\n")
+        outputs = _run(src)
+        sys.stdout.write("__PRISM_RESULT__" + json.dumps({"outputs": outputs}) + "\n")
         sys.stdout.flush()
 
 _main()
@@ -88,6 +153,9 @@ pub struct KernelManager {
     kernel_id: String,
     execution_count: usize,
     timeout: Duration,
+    /// Current interpreter PID, shared so the API can SIGINT a running cell
+    /// without taking the kernel lock (which a running execute() holds).
+    pid: Arc<AtomicI32>,
 }
 
 impl KernelManager {
@@ -102,6 +170,7 @@ impl KernelManager {
         }
 
         let (child, stdin, stdout) = Self::spawn_process()?;
+        let pid = Arc::new(AtomicI32::new(child.id().map(|p| p as i32).unwrap_or(0)));
         Ok(KernelManager {
             child: Some(child),
             stdin: Some(stdin),
@@ -109,7 +178,13 @@ impl KernelManager {
             kernel_id: Uuid::new_v4().to_string(),
             execution_count: 0,
             timeout: Duration::from_secs(60),
+            pid,
         })
+    }
+
+    /// Shareable handle to the live interpreter PID (0 when not running).
+    pub fn pid_handle(&self) -> Arc<AtomicI32> {
+        self.pid.clone()
     }
 
     fn spawn_process() -> Result<(Child, ChildStdin, BufReader<ChildStdout>)> {
@@ -136,6 +211,7 @@ impl KernelManager {
             let _ = c.start_kill();
         }
         let (child, stdin, stdout) = Self::spawn_process()?;
+        self.pid.store(child.id().map(|p| p as i32).unwrap_or(0), Ordering::SeqCst);
         self.child = Some(child);
         self.stdin = Some(stdin);
         self.stdout = Some(stdout);
@@ -158,7 +234,10 @@ impl KernelManager {
                 // The interpreter is mid-execution and the pipe is desynced; the
                 // only safe recovery is a restart.
                 let _ = self.restart();
-                Err(anyhow!("Execution timed out after {:?}", self.timeout))
+                Err(anyhow!(
+                    "Execution timed out after {:?} — kernel restarted, all variables cleared.",
+                    self.timeout
+                ))
             }
         }
     }
@@ -196,31 +275,14 @@ impl KernelManager {
         }
     }
 
-    /// Turn the driver's JSON reply into Jupyter-style output objects. A Python
-    /// exception is surfaced as an `Err` carrying the traceback, which the API
-    /// layer renders as an `error` output the "Fix with AI" button can act on.
+    /// The driver already builds Jupyter-style output objects (stream,
+    /// execute_result with a MIME bundle, display_data for figures, and error
+    /// with a traceback). Just hand them through.
     fn build_outputs(res: Value) -> Result<Vec<Value>> {
-        if let Some(tb) = res.get("error").and_then(|v| v.as_str()) {
-            if !tb.is_empty() {
-                return Err(anyhow!("{}", tb));
-            }
+        match res.get("outputs") {
+            Some(Value::Array(a)) => Ok(a.clone()),
+            _ => Ok(vec![]),
         }
-
-        let mut outputs = vec![];
-        if let Some(s) = res.get("stdout").and_then(|v| v.as_str()) {
-            if !s.is_empty() {
-                outputs.push(json!({"output_type": "stream", "name": "stdout", "text": s}));
-            }
-        }
-        if let Some(s) = res.get("stderr").and_then(|v| v.as_str()) {
-            if !s.is_empty() {
-                outputs.push(json!({"output_type": "stream", "name": "stderr", "text": s}));
-            }
-        }
-        if let Some(r) = res.get("result").and_then(|v| v.as_str()) {
-            outputs.push(json!({"output_type": "execute_result", "text": r}));
-        }
-        Ok(outputs)
     }
 
     async fn handle_package_install(&self, code: &str) -> Result<(Vec<String>, Vec<Value>)> {

@@ -1,6 +1,7 @@
-import { Download, Upload, Save, Moon, Sun, Sparkles } from 'lucide-react'
+import { Download, Upload, Save, Moon, Sun, Sparkles, RotateCcw } from 'lucide-react'
 import { useNotebookStore } from '../hooks/useNotebook'
 import AISettings from './AISettings'
+import { restartKernel } from '../api/kernel'
 import { useState } from 'react'
 
 export default function Toolbar() {
@@ -47,6 +48,18 @@ export default function Toolbar() {
           title="Import notebook"
         >
           <Upload size={18} />
+        </button>
+
+        <button
+          onClick={async () => {
+            if (confirm('Restart the kernel? All variables will be cleared.')) {
+              await restartKernel()
+            }
+          }}
+          className="p-2 hover:bg-slate-700 rounded transition text-gray-400 hover:text-white"
+          title="Restart kernel (clear all variables)"
+        >
+          <RotateCcw size={18} />
         </button>
 
         <div className="h-6 w-px bg-slate-700"></div>

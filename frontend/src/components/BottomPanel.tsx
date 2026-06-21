@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { TerminalSquare, BarChart3, ListChecks, ChevronDown, X, Minus, SquareTerminal } from 'lucide-react'
+import { TerminalSquare, BarChart3, ListChecks, ChevronDown, X, Minus, SquareTerminal, Plus } from 'lucide-react'
 import { useNotebookStore } from '../hooks/useNotebook'
+import { useFontSize } from '../hooks/useFontSize'
 
 type Tab = 'terminal' | 'output' | 'plots' | 'console'
 
@@ -14,6 +15,7 @@ export default function BottomPanel({ onClose }: BottomPanelProps) {
   const [collapsed, setCollapsed] = useState(false)
   const [height, setHeight] = useState(240)
   const dragging = useRef(false)
+  const { size: fontSize, inc, dec } = useFontSize('pn-bottom-font', 13)
 
   // ---- resize via top drag handle ----
   const onMouseDown = useCallback(() => {
@@ -156,6 +158,10 @@ export default function BottomPanel({ onClose }: BottomPanelProps) {
           })}
         </div>
         <div className="flex items-center gap-0.5 pn-muted">
+          <button onClick={dec} title="Decrease font size" className="p-1 pn-hover rounded"><Minus size={13} /></button>
+          <span className="text-[10px] tabular-nums w-5 text-center" title="Panel font size">{fontSize}</span>
+          <button onClick={inc} title="Increase font size" className="p-1 pn-hover rounded"><Plus size={13} /></button>
+          <span className="w-px h-4 bg-white/10 mx-1" />
           <button onClick={() => setCollapsed((c) => !c)} title={collapsed ? 'Expand' : 'Minimize'} className="p-1 pn-hover rounded">
             {collapsed ? <ChevronDown size={14} className="rotate-180" /> : <Minus size={14} />}
           </button>
@@ -167,7 +173,7 @@ export default function BottomPanel({ onClose }: BottomPanelProps) {
 
       {/* body */}
       {!collapsed && (
-        <div className="flex-1 overflow-auto font-mono pn-code-size">
+        <div className="flex-1 overflow-auto font-mono" style={{ fontSize }}>
           {tab === 'terminal' && (
             <div className="p-2 pn-text">
               {history.map((h, i) => (

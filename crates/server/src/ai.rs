@@ -145,7 +145,7 @@ impl AIEngine {
         let model = self.config.ollama_model.as_ref().ok_or(anyhow!("Ollama model not selected"))?;
 
         let prompt = format!(
-            "Explain this Python code briefly (2-3 sentences):\n\n```python\n{}\n```",
+            "You are Prism, a friendly Python data-science teacher. Explain this code clearly in 2-3 sentences (the what AND the why), then add one line starting with '💡 Tip:' giving a relevant, specific tip or gotcha for this code:\n\n```python\n{}\n```",
             code
         );
 
@@ -209,7 +209,7 @@ impl AIEngine {
         let api_key = self.config.claude_api_key.as_ref().ok_or(anyhow!("Claude API key not configured"))?;
 
         let message = format!(
-            "Explain this Python code briefly (2-3 sentences):\n\n```python\n{}\n```",
+            "You are Prism, a friendly Python data-science teacher. Explain this code clearly in 2-3 sentences (the what AND the why), then add one line starting with '💡 Tip:' giving a relevant, specific tip or gotcha for this code:\n\n```python\n{}\n```",
             code
         );
 
@@ -280,7 +280,7 @@ impl AIEngine {
         let model = self.config.openai_model.as_ref().ok_or(anyhow!("OpenAI model not selected"))?;
 
         let message = format!(
-            "Explain this Python code briefly (2-3 sentences):\n\n```python\n{}\n```",
+            "You are Prism, a friendly Python data-science teacher. Explain this code clearly in 2-3 sentences (the what AND the why), then add one line starting with '💡 Tip:' giving a relevant, specific tip or gotcha for this code:\n\n```python\n{}\n```",
             code
         );
 

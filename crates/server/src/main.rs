@@ -45,6 +45,8 @@ pub struct AppState {
     notebooks_dir: String,
     ai_engine: Option<Arc<ai::AIEngine>>,
     kernel: tokio::sync::Mutex<Option<kernel::KernelManager>>,
+    /// Live interpreter PID (0 = none), used to interrupt a running cell.
+    kernel_pid: std::sync::Arc<std::sync::atomic::AtomicI32>,
 }
 
 #[tokio::main]
@@ -83,16 +85,24 @@ async fn main() -> anyhow::Result<()> {
         }
     };
 
+    let kernel_pid = kernel
+        .as_ref()
+        .map(|k| k.pid_handle())
+        .unwrap_or_else(|| std::sync::Arc::new(std::sync::atomic::AtomicI32::new(0)));
+
     let state = Arc::new(AppState {
         notebooks_dir,
         ai_engine,
         kernel: tokio::sync::Mutex::new(kernel),
+        kernel_pid,
     });
 
     let api_routes = Router::new()
         .route("/notebooks", get(api::list_notebooks).post(api::create_notebook))
         .route("/notebooks/:id", get(api::get_notebook).put(api::update_notebook).delete(api::delete_notebook))
         .route("/notebooks/:id/execute", post(api::execute_cell))
+        .route("/kernel/interrupt", post(api::kernel_interrupt))
+        .route("/kernel/restart", post(api::kernel_restart))
         .route("/terminal/exec", post(api::terminal_exec))
         .route("/notebooks/:id/suggest-libraries", post(api::suggest_libraries))
         .route("/notebooks/:id/libraries/ignore", post(api::ignore_library))

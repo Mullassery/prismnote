@@ -55,6 +55,32 @@ function App() {
     if (fs) document.documentElement.style.setProperty('--pn-code-size', `${fs}px`)
   }, [])
 
+  // Responsive layout: auto-collapse side panels when the window is too narrow
+  // to show them comfortably, and restore them when it widens again. Acts only
+  // on breakpoint transitions so it doesn't fight manual toggles at a given size.
+  useEffect(() => {
+    const NARROW = 1000 // below this, hide both side panels
+    const TIGHT = 700 //  below this, also hide the bottom panel
+    let prev = { narrow: window.innerWidth < NARROW, tight: window.innerWidth < TIGHT }
+    if (prev.narrow || prev.tight) {
+      setPanels((p) => ({
+        files: prev.narrow ? false : p.files,
+        ai: prev.narrow ? false : p.ai,
+        terminal: prev.tight ? false : p.terminal,
+      }))
+    }
+    const onResize = () => {
+      const narrow = window.innerWidth < NARROW
+      const tight = window.innerWidth < TIGHT
+      if (narrow !== prev.narrow || tight !== prev.tight) {
+        prev = { narrow, tight }
+        setPanels({ files: !narrow, ai: !narrow, terminal: !tight })
+      }
+    }
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
+
   // global shortcuts: ⇧⌘P command palette, ⌘, settings
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
