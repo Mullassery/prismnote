@@ -1,14 +1,46 @@
-# PrismNote v0.3
+# PrismNote v0.4
 
-**Modern, open-source Jupyter-compatible notebook platform with Python code execution, SQL support, and cloud warehouse integration.**
+**Modern, open-source Jupyter-compatible notebook platform — local-first, AI-native, with a persistent kernel, jobs, git, and one-click cloud deploy.**
 
-**License:** MIT | **Status:** Beta (v0.3) | **Latest:** 2026-06-20
+**License:** MIT | **Status:** Beta (v0.4) | **Latest:** 2026-06-21
 
 ---
 
 ## What is PrismNote?
 
-PrismNote is a modern alternative to Jupyter with a focus on **simplicity, speed, and reproducibility**. Write Python code, execute SQL queries, and manage data workflows all in one beautiful, responsive notebook.
+PrismNote is a modern alternative to Jupyter with a focus on **simplicity, speed, and reproducibility**. Write Python code, execute SQL queries, and manage data workflows all in one beautiful, responsive notebook — backed by a Rust engine and a persistent Python kernel.
+
+---
+
+## ✨ New in v0.4
+
+**Execution & kernel**
+- **Persistent shared kernel** — variables/imports/functions defined in one cell are visible in the next (true notebook semantics).
+- **Per-cell interpreter magics**: `%python` (default), `%sql` (DuckDB, can query DataFrames from other cells), `%sh`/`!cmd` (shell), `%md` (markdown).
+- **Rich output**: matplotlib figures, pandas DataFrame HTML, and a **Table / Bar / Line chart switcher** for DataFrames.
+- **Live streamed output** over WebSocket, plus **interrupt** (Stop) and **restart kernel**.
+- **Dynamic input widgets**: `prism.input/slider/select/checkbox` re-run the cell on change.
+- Pretty-printing on by default (`rich`).
+
+**AI (local-first via Ollama, or Claude/OpenAI)**
+- In-cell **⌘K AI edit** (diff accept/reject), **Fix with AI** on errors, **Explain**.
+- **Inline code autocomplete** (ghost text) when Ollama is connected.
+- A **Python-teacher persona** so any model teaches the "why" with contextual tips.
+- **Friendly, natural-language error explanations** + **in-editor error markers** (line/column squiggles).
+
+**Workflow**
+- **Jobs**: save a whole notebook and run it as a unit — manual, interval, or daily — with status/history (Airflow-style).
+- **Airflow integration**: stable `run-by-name` trigger + one-click **generated DAG**.
+- **Git/GitHub**: init, clone, commit, push, pull, status from the Source Control panel.
+- **One-click cloud deploy**: generated `Dockerfile`, `docker-compose.yml`, `k8s.yaml`, `fly.toml`.
+- **Reliable file browsing** (works in any browser via a server-side browser).
+
+**UX**
+- Full-width coding panel; **all panels collapsible** with **per-panel font +/-**.
+- Responsive layout (auto-collapses side panels on narrow windows).
+- Revamped, fully-working top menus + command palette (⇧⌘P) + global search (⌘K).
+
+See feature comparisons: [ZEPPELIN_COMPARISON.md](ZEPPELIN_COMPARISON.md) · [DATABRICKS_COMPARISON.md](DATABRICKS_COMPARISON.md) · [NOTEBOOK_COMPARISON_MATRIX.md](NOTEBOOK_COMPARISON_MATRIX.md)
 
 **Best for:**
 - Data scientists and analysts who want a modern Jupyter replacement
