@@ -2,7 +2,7 @@ use crate::ai::AIRequest;
 use crate::models::{ExecuteCellRequest, ExecuteCellResponse, Notebook, Output};
 use crate::AppState;
 use axum::{
-    extract::{Path, State},
+    extract::{Path, Query, State},
     http::StatusCode,
     Json,
 };
@@ -126,72 +126,58 @@ pub async fn execute_cell(
     Path(id): Path<String>,
     Json(req): Json<ExecuteCellRequest>,
 ) -> (StatusCode, Json<ExecuteCellResponse>) {
-    // Load notebook
-    let path = format!("{}/{}.ipynb", state.notebooks_dir, id);
-    let notebook = match std::fs::read_to_string(&path) {
-        Ok(content) => match serde_json::from_str::<serde_json::Value>(&content) {
-            Ok(ipynb) => match crate::files::from_ipynb(ipynb) {
-                Ok(nb) => nb,
+    // Preferred path: the client sends the code directly, so execution does not
+    // depend on the notebook file existing on disk or on cell-id round-tripping.
+    let code = if let Some(c) = req.code.clone() {
+        c
+    } else {
+        // Fallback: load the notebook from disk and look the cell up by id.
+        let path = format!("{}/{}.ipynb", state.notebooks_dir, id);
+        let notebook = match std::fs::read_to_string(&path) {
+            Ok(content) => match serde_json::from_str::<serde_json::Value>(&content) {
+                Ok(ipynb) => match crate::files::from_ipynb(ipynb) {
+                    Ok(nb) => nb,
+                    Err(_) => {
+                        return (
+                            StatusCode::INTERNAL_SERVER_ERROR,
+                            Json(ExecuteCellResponse { execution_count: 0, outputs: vec![] }),
+                        )
+                    }
+                },
                 Err(_) => {
                     return (
                         StatusCode::INTERNAL_SERVER_ERROR,
-                        Json(ExecuteCellResponse {
-                            execution_count: 0,
-                            outputs: vec![],
-                        }),
+                        Json(ExecuteCellResponse { execution_count: 0, outputs: vec![] }),
                     )
                 }
             },
             Err(_) => {
                 return (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(ExecuteCellResponse {
-                        execution_count: 0,
-                        outputs: vec![],
-                    }),
+                    StatusCode::NOT_FOUND,
+                    Json(ExecuteCellResponse { execution_count: 0, outputs: vec![] }),
                 )
             }
-        },
-        Err(_) => {
+        };
+
+        let cell = match notebook.cells.iter().find(|c| c.id == req.cell_id) {
+            Some(c) => c,
+            None => {
+                return (
+                    StatusCode::NOT_FOUND,
+                    Json(ExecuteCellResponse { execution_count: 0, outputs: vec![] }),
+                )
+            }
+        };
+
+        if cell.cell_type != "code" {
             return (
-                StatusCode::NOT_FOUND,
-                Json(ExecuteCellResponse {
-                    execution_count: 0,
-                    outputs: vec![],
-                }),
-            )
+                StatusCode::BAD_REQUEST,
+                Json(ExecuteCellResponse { execution_count: 0, outputs: vec![] }),
+            );
         }
-    };
 
-    // Find cell
-    let cell = match notebook.cells.iter().find(|c| c.id == req.cell_id) {
-        Some(c) => c,
-        None => {
-            return (
-                StatusCode::NOT_FOUND,
-                Json(ExecuteCellResponse {
-                    execution_count: 0,
-                    outputs: vec![],
-                }),
-            )
-        }
-    };
-
-    // Only execute code cells
-    if cell.cell_type != "code" {
-        return (
-            StatusCode::BAD_REQUEST,
-            Json(ExecuteCellResponse {
-                execution_count: 0,
-                outputs: vec![],
-            }),
-        );
-    }
-
-    let code = if let Some(source) = cell.source.first() {
-        source.clone()
-    } else {
-        String::new()
+        // Join ALL source lines (the old code only ran source[0]).
+        cell.source.join("")
     };
 
     if code.trim().is_empty() {
@@ -223,7 +209,7 @@ pub async fn execute_cell(
             match result {
                 Ok(outputs) => {
                     let response = ExecuteCellResponse {
-                        execution_count: 1,
+                        execution_count: k.execution_count(),
                         outputs: outputs
                             .into_iter()
                             .map(|out| Output {
@@ -269,6 +255,39 @@ pub async fn execute_cell(
             }),
         ),
     }
+}
+
+#[derive(serde::Deserialize)]
+pub struct TerminalRequest {
+    pub command: String,
+    #[serde(default)]
+    pub cwd: Option<String>,
+}
+
+/// Run a shell command and return combined stdout+stderr. Local dev tool — runs
+/// in the server process's working directory (or `cwd` if provided).
+pub async fn terminal_exec(Json(req): Json<TerminalRequest>) -> Json<serde_json::Value> {
+    let mut cmd = tokio::process::Command::new("sh");
+    cmd.arg("-c").arg(&req.command);
+    if let Some(dir) = req.cwd.as_ref() {
+        cmd.current_dir(dir);
+    }
+    let result = cmd.output().await;
+    let (output, code) = match result {
+        Ok(o) => {
+            let mut s = String::from_utf8_lossy(&o.stdout).to_string();
+            let err = String::from_utf8_lossy(&o.stderr);
+            if !err.is_empty() {
+                if !s.is_empty() && !s.ends_with('\n') {
+                    s.push('\n');
+                }
+                s.push_str(&err);
+            }
+            (s, o.status.code().unwrap_or(-1))
+        }
+        Err(e) => (format!("prismnote: {e}"), -1),
+    };
+    Json(serde_json::json!({ "output": output.trim_end_matches('\n'), "exit_code": code }))
 }
 
 async fn execute_sql_cell(code: &str, _state: &Arc<AppState>) -> anyhow::Result<Vec<serde_json::Value>> {
@@ -400,6 +419,115 @@ pub async fn ai_complete(
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(AIResponseData {
                     suggestion: "Error getting AI response".to_string(),
+                }),
+            ),
+        },
+        None => (
+            StatusCode::BAD_REQUEST,
+            Json(AIResponseData {
+                suggestion: "AI not configured".to_string(),
+            }),
+        ),
+    }
+}
+
+// ── Server-side filesystem browser ──────────────────────────────────────────
+// Reliable "Open Folder" for a local-first app: the backend lists the real
+// filesystem, so it works in any browser (including embedded/automated ones)
+// without depending on the sandboxed File System Access API.
+
+#[derive(Deserialize)]
+pub struct FsQuery {
+    pub path: Option<String>,
+}
+
+fn default_dir() -> String {
+    std::env::var("HOME")
+        .or_else(|_| std::env::var("USERPROFILE"))
+        .unwrap_or_else(|_| "/".to_string())
+}
+
+pub async fn fs_list(Query(q): Query<FsQuery>) -> (StatusCode, Json<serde_json::Value>) {
+    let path = q.path.filter(|p| !p.trim().is_empty()).unwrap_or_else(default_dir);
+    let p = std::path::Path::new(&path);
+
+    let read = match std::fs::read_dir(p) {
+        Ok(rd) => rd,
+        Err(e) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(json!({ "error": format!("cannot open {}: {}", path, e) })),
+            )
+        }
+    };
+
+    let mut entries: Vec<serde_json::Value> = vec![];
+    for e in read.flatten() {
+        let name = e.file_name().to_string_lossy().to_string();
+        if name.starts_with('.') {
+            continue; // hide dotfiles by default
+        }
+        let is_dir = e.file_type().map(|t| t.is_dir()).unwrap_or(false);
+        entries.push(json!({
+            "name": name,
+            "path": e.path().to_string_lossy(),
+            "is_dir": is_dir,
+        }));
+    }
+    // directories first, then case-insensitive by name
+    entries.sort_by(|a, b| {
+        let ad = a["is_dir"].as_bool().unwrap_or(false);
+        let bd = b["is_dir"].as_bool().unwrap_or(false);
+        bd.cmp(&ad).then_with(|| {
+            a["name"].as_str().unwrap_or("").to_lowercase()
+                .cmp(&b["name"].as_str().unwrap_or("").to_lowercase())
+        })
+    });
+
+    let abs = p.canonicalize().unwrap_or_else(|_| p.to_path_buf());
+    let parent = abs.parent().map(|x| x.to_string_lossy().to_string());
+    (
+        StatusCode::OK,
+        Json(json!({
+            "path": abs.to_string_lossy(),
+            "parent": parent,
+            "entries": entries,
+        })),
+    )
+}
+
+pub async fn fs_read(Query(q): Query<FsQuery>) -> (StatusCode, Json<serde_json::Value>) {
+    let path = q.path.unwrap_or_default();
+    match std::fs::read_to_string(&path) {
+        Ok(content) => (StatusCode::OK, Json(json!({ "path": path, "content": content }))),
+        Err(e) => (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "error": format!("cannot read {}: {}", path, e) })),
+        ),
+    }
+}
+
+#[derive(Deserialize)]
+pub struct AIEditRequest {
+    pub code: String,
+    pub instruction: String,
+    pub context: Option<String>,
+}
+
+pub async fn ai_edit(
+    State(state): State<Arc<AppState>>,
+    Json(req): Json<AIEditRequest>,
+) -> (StatusCode, Json<AIResponseData>) {
+    match &state.ai_engine {
+        Some(engine) => match engine
+            .transform(&req.code, &req.instruction, req.context.as_deref())
+            .await
+        {
+            Ok(suggestion) => (StatusCode::OK, Json(AIResponseData { suggestion })),
+            Err(e) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(AIResponseData {
+                    suggestion: format!("AI error: {}", e),
                 }),
             ),
         },

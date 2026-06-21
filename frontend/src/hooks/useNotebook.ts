@@ -45,7 +45,7 @@ interface NotebookStore {
   createNotebook: (name: string) => void
   deleteNotebook: (id: string) => void
   setCurrentNotebook: (id: string) => void
-  addCell: (type: 'code' | 'markdown') => void
+  addCell: (type: 'code' | 'markdown', index?: number) => void
   updateCell: (index: number, updates: Partial<Cell>) => void
   deleteCell: (index: number) => void
   executeCell: (index: number) => Promise<void>
@@ -54,7 +54,7 @@ interface NotebookStore {
   saveNotebook: () => void
 }
 
-const API_BASE = 'http://localhost:8000/api'
+const API_BASE = '/api'
 
 export const useNotebookStore = create<NotebookStore>((set, get) => ({
   notebooks: [],
@@ -109,7 +109,7 @@ export const useNotebookStore = create<NotebookStore>((set, get) => ({
     }
   },
 
-  addCell: (type: 'code' | 'markdown') => {
+  addCell: (type: 'code' | 'markdown', index?: number) => {
     set((state) => {
       if (!state.currentNotebook) return state
 
@@ -122,11 +122,13 @@ export const useNotebookStore = create<NotebookStore>((set, get) => ({
         metadata: {},
       }
 
+      const cells = [...state.currentNotebook.cells]
+      // index = insert position; default (undefined) appends to the end.
+      const at = index == null ? cells.length : Math.max(0, Math.min(index, cells.length))
+      cells.splice(at, 0, newCell)
+
       return {
-        currentNotebook: {
-          ...state.currentNotebook,
-          cells: [...state.currentNotebook.cells, newCell],
-        },
+        currentNotebook: { ...state.currentNotebook, cells },
       }
     })
   },
@@ -177,6 +179,8 @@ export const useNotebookStore = create<NotebookStore>((set, get) => ({
     try {
       const res = await axios.post(`${API_BASE}/notebooks/${state.currentNotebook.id}/execute`, {
         cell_id: cell.id,
+        // send the code directly so execution doesn't depend on the on-disk file
+        code: Array.isArray(cell.source) ? cell.source.join('') : cell.source,
       })
 
       const { execution_count, outputs } = res.data

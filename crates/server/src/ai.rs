@@ -72,6 +72,56 @@ impl AIEngine {
         }
     }
 
+    /// Rewrite a cell of code according to a natural-language instruction.
+    /// Returns code only (markdown fences stripped) so the result can be
+    /// dropped straight back into the editor.
+    pub async fn transform(
+        &self,
+        code: &str,
+        instruction: &str,
+        context: Option<&str>,
+    ) -> Result<String> {
+        let ctx = context
+            .filter(|c| !c.trim().is_empty())
+            .map(|c| format!("Other cells in the notebook (for reference, do not repeat):\n```python\n{}\n```\n\n", c))
+            .unwrap_or_default();
+
+        let prompt = format!(
+            "You are an expert Python data-science assistant editing a single notebook cell.\n\
+             {ctx}Rewrite the cell below to satisfy this instruction:\n\
+             \"{instruction}\"\n\n\
+             Current cell:\n```python\n{code}\n```\n\n\
+             Return ONLY the complete, updated Python for this cell. \
+             No explanation, no commentary, no markdown fences.",
+        );
+
+        let raw = self.call_api(&prompt).await?;
+        Ok(strip_code_fences(&raw))
+    }
+}
+
+/// Remove a surrounding ```lang ... ``` fence if the model wrapped its answer.
+fn strip_code_fences(text: &str) -> String {
+    let trimmed = text.trim();
+    if let Some(rest) = trimmed.strip_prefix("```") {
+        // drop the optional language tag on the first line
+        let after_lang = match rest.find('\n') {
+            Some(nl) => &rest[nl + 1..],
+            None => rest,
+        };
+        if let Some(body) = after_lang.strip_suffix("```") {
+            return body.trim_end().to_string();
+        }
+        // closing fence on its own line
+        if let Some(idx) = after_lang.rfind("```") {
+            return after_lang[..idx].trim_end().to_string();
+        }
+    }
+    trimmed.to_string()
+}
+
+impl AIEngine {
+
     async fn ollama_call_api(&self, prompt: &str) -> Result<String> {
         let ollama_url = self.config.ollama_url.as_ref().ok_or(anyhow!("Ollama URL not configured"))?;
         let model = self.config.ollama_model.as_ref().ok_or(anyhow!("Ollama model not selected"))?;

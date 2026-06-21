@@ -16,15 +16,9 @@ export default {
         error: '#EF4444',
         info: '#3B82F6',
       },
-      spacing: {
-        xs: '4px',
-        sm: '8px',
-        md: '16px',
-        lg: '24px',
-        xl: '32px',
-        '2xl': '48px',
-        '3xl': '64px',
-      },
+      // NOTE: custom named spacing (xs/sm/md/lg/xl/2xl/3xl) removed — in Tailwind
+      // v4 those names shadow the sizing scale, breaking max-w-md/max-w-2xl etc.
+      // No component uses them as padding/gap utilities, so this is safe.
       borderRadius: {
         sm: '4px',
         md: '6px',

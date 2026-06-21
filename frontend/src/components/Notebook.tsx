@@ -1,122 +1,83 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useNotebookStore } from '../hooks/useNotebook'
 import Cell from './Cell'
 import Toolbar from './Toolbar'
-import AIPanel from './AIPanel'
-import LibrarySuggester from './LibrarySuggester'
-import { Plus } from 'lucide-react'
+import { Plus, FileCode, Code2, Type } from 'lucide-react'
 
 export default function Notebook() {
-  const {
-    currentNotebook,
-    addCell,
-    updateCell,
-    librarySuggestions,
-    suggestionsIntent,
-    suggestionsSummary,
-    suggestionsLoading,
-    suggestLibraries,
-    ignoreLibrary,
-  } = useNotebookStore()
+  const { currentNotebook, addCell } = useNotebookStore()
   const [selectedCellIndex, setSelectedCellIndex] = useState<number | null>(null)
-  const [rightPanelMode, setRightPanelMode] = useState<'ai' | 'libraries'>('ai')
-
-  useEffect(() => {
-    if (currentNotebook) {
-      suggestLibraries()
-    }
-  }, [currentNotebook?.id])
 
   if (!currentNotebook) {
     return <div className="p-4">No notebook selected</div>
   }
 
-  const selectedCell = selectedCellIndex !== null ? currentNotebook.cells[selectedCellIndex] : null
-  const cellCode = selectedCell ? (Array.isArray(selectedCell.source) ? selectedCell.source.join('') : selectedCell.source) : ''
-
-  const handleInsertAICode = (code: string) => {
-    if (selectedCellIndex !== null) {
-      updateCell(selectedCellIndex, { source: code.split('\n') })
-      setSelectedCellIndex(null)
-    }
-  }
+  // Slim hover strip shown between cells (and above the first) so a Code or
+  // Markdown cell can be inserted exactly where you want it.
+  const Inserter = ({ at }: { at: number }) => (
+    <div className="group relative h-2 hover:h-8 transition-all flex items-center justify-center">
+      <div className="absolute inset-x-0 top-1/2 h-px bg-violet-500/0 group-hover:bg-violet-500/40 transition-colors" />
+      <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-1 z-10">
+        <button
+          onClick={() => addCell('code', at)}
+          className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] pn-solid-bg border pn-bd hover:border-violet-500 pn-muted hover:pn-text shadow-sm"
+          title="Insert code cell here"
+        >
+          <Code2 size={11} /> Code
+        </button>
+        <button
+          onClick={() => addCell('markdown', at)}
+          className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] pn-solid-bg border pn-bd hover:border-violet-500 pn-muted hover:pn-text shadow-sm"
+          title="Insert markdown / text cell here"
+        >
+          <Type size={11} /> Markdown
+        </button>
+      </div>
+    </div>
+  )
 
   return (
-    <div className="h-full flex bg-slate-900">
-      {/* Main notebook area */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <Toolbar />
-        <div className="flex-1 overflow-y-auto p-4">
-          <div className="max-w-4xl mx-auto space-y-3">
-            {currentNotebook.cells.map((cell, idx) => (
+    <div className="h-full flex flex-col pn-solid-bg overflow-hidden">
+      {/* breadcrumb */}
+      <div className="h-7 flex items-center gap-1.5 px-3 text-[12px] pn-muted border-b pn-bd pn-surface/40">
+        <FileCode size={13} className="text-yellow-400" />
+        <span className="pn-muted">{currentNotebook.name}.ipynb</span>
+        <span className="pn-faint">— {currentNotebook.cells.length} cells</span>
+      </div>
+
+      <Toolbar />
+
+      <div className="flex-1 overflow-y-auto p-4 min-w-0">
+        <div className="w-full min-w-0">
+          <Inserter at={0} />
+          {currentNotebook.cells.map((cell, idx) => (
+            <div key={cell.id}>
               <div
-                key={cell.id}
                 onClick={() => setSelectedCellIndex(idx)}
-                className={`cursor-pointer transition ${selectedCellIndex === idx ? 'ring-2 ring-blue-500 rounded-lg' : ''}`}
+                className={`cursor-text transition rounded-lg ${
+                  selectedCellIndex === idx ? 'ring-2 ring-blue-500/70' : 'ring-1 ring-transparent hover:ring-slate-700'
+                }`}
               >
                 <Cell cell={cell} cellIndex={idx} />
               </div>
-            ))}
+              <Inserter at={idx + 1} />
+            </div>
+          ))}
 
+          <div className="mt-2 flex items-center justify-center gap-2">
             <button
               onClick={() => addCell('code')}
-              className="flex items-center gap-2 p-3 rounded hover:bg-slate-800 text-gray-400 hover:text-white transition"
+              className="flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed pn-bd hover:border-violet-500 pn-hover/50 pn-muted hover:pn-text transition"
             >
-              <Plus size={18} />
-              Add Code Cell
+              <Plus size={16} /> Code
+            </button>
+            <button
+              onClick={() => addCell('markdown')}
+              className="flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed pn-bd hover:border-violet-500 pn-hover/50 pn-muted hover:pn-text transition"
+            >
+              <Type size={16} /> Markdown
             </button>
           </div>
-        </div>
-      </div>
-
-      {/* Right Panel - AI or Libraries */}
-      <div className="w-80 border-l border-slate-700 flex flex-col overflow-hidden">
-        {/* Panel tabs */}
-        <div className="flex gap-0 border-b border-slate-700">
-          <button
-            onClick={() => setRightPanelMode('ai')}
-            className={`flex-1 px-3 py-2 text-xs font-medium transition ${
-              rightPanelMode === 'ai'
-                ? 'border-b-2 border-blue-400 text-blue-400'
-                : 'text-gray-400 hover:text-white border-b-2 border-transparent'
-            }`}
-          >
-            AI
-          </button>
-          <button
-            onClick={() => setRightPanelMode('libraries')}
-            className={`flex-1 px-3 py-2 text-xs font-medium transition ${
-              rightPanelMode === 'libraries'
-                ? 'border-b-2 border-blue-400 text-blue-400'
-                : 'text-gray-400 hover:text-white border-b-2 border-transparent'
-            }`}
-          >
-            Libraries
-          </button>
-        </div>
-
-        {/* Panel content */}
-        <div className="flex-1 overflow-hidden">
-          {rightPanelMode === 'ai' && selectedCell && selectedCell.cell_type === 'code' ? (
-            <AIPanel
-              cellCode={cellCode}
-              cellError={selectedCell.outputs?.find((o: any) => o.output_type === 'error')?.text?.[0]}
-              onInsertCode={handleInsertAICode}
-            />
-          ) : rightPanelMode === 'libraries' ? (
-            <LibrarySuggester
-              suggestions={librarySuggestions}
-              onInstall={(name, version) => {
-                console.log(`Install ${name}@${version}`)
-              }}
-              onIgnore={ignoreLibrary}
-              isLoading={suggestionsLoading}
-              detectedIntent={suggestionsIntent}
-              contextSummary={suggestionsSummary}
-            />
-          ) : (
-            <div className="p-4 text-gray-500 text-sm">Select a code cell to use AI assistance</div>
-          )}
         </div>
       </div>
     </div>

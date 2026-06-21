@@ -1,6 +1,106 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+@config "../tailwind.config.js";
+
+/* ── PrismNote visual language ──────────────────────────────────────────
+   "Prism" = light through glass → a spectrum accent (indigo→violet→fuchsia)
+   layered over a deep, slightly blue-tinted dark surface. */
+
+.prism-text {
+  background: linear-gradient(95deg, #818cf8 0%, #a78bfa 40%, #e879f9 75%, #f0abfc 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+.prism-bg {
+  background: linear-gradient(95deg, #6366f1 0%, #8b5cf6 45%, #d946ef 100%);
+}
+/* deeper, less glaring gradient on light surfaces */
+:root:not(.dark) .prism-bg {
+  background: linear-gradient(95deg, #5b54d6 0%, #7c3aed 50%, #b324c4 100%);
+}
+:root:not(.dark) .prism-text {
+  background: linear-gradient(95deg, #5b21b6 0%, #6d28d9 40%, #a21caf 75%, #be185d 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+:root:not(.dark) .prism-bar { background: linear-gradient(180deg, #7c3aed 0%, #6d28d9 100%); }
+.prism-bar {
+  background: linear-gradient(180deg, #a78bfa 0%, #818cf8 100%);
+}
+/* soft elevated app backdrop */
+.app-backdrop {
+  background:
+    radial-gradient(1200px 500px at 75% -10%, rgba(139, 92, 246, 0.12), transparent 60%),
+    radial-gradient(900px 500px at 0% 110%, rgba(99, 102, 241, 0.10), transparent 55%),
+    #0a0b12;
+}
+.glow-accent { box-shadow: 0 0 0 1px rgba(139,92,246,0.35), 0 6px 24px -8px rgba(139,92,246,0.45); }
+
+/* refined thin scrollbars */
+*::-webkit-scrollbar { width: 9px; height: 9px; }
+*::-webkit-scrollbar-thumb { background: rgba(148,163,184,0.18); border-radius: 9px; }
+*::-webkit-scrollbar-thumb:hover { background: rgba(148,163,184,0.35); }
+*::-webkit-scrollbar-track { background: transparent; }
+
+/* ── Theme tokens: dark is the rich default (.dark on <html>); removing
+   .dark falls back to the light palette below. Semantic classes let every
+   component theme from one place. ── */
+:root {
+  --pn-surface: rgba(255, 255, 255, 0.82);
+  --pn-solid: #ffffff;
+  --pn-bar: rgba(255, 255, 255, 0.88);
+  --pn-border: rgba(15, 23, 42, 0.10);
+  --pn-text: #1f2937;
+  --pn-muted: #5b6472;
+  --pn-faint: #97a1b2;
+  --pn-hover: rgba(15, 23, 42, 0.06);
+  --pn-backdrop:
+    radial-gradient(1100px 480px at 78% -10%, rgba(139, 92, 246, 0.10), transparent 60%),
+    radial-gradient(900px 480px at 0% 110%, rgba(99, 102, 241, 0.08), transparent 55%),
+    #f4f5fb;
+}
+/* Dark palette adopted from Claude Code: warm near-black surfaces, warm
+   off-white text, a Claude-coral glow blended with the PrismNote spectrum. */
+.dark {
+  --pn-surface: rgba(28, 26, 23, 0.72);
+  --pn-solid: #211f1c;
+  --pn-bar: rgba(24, 22, 19, 0.96);
+  --pn-border: rgba(255, 255, 255, 0.07);
+  --pn-text: #e9e6e1;
+  --pn-muted: #a7a097;
+  --pn-faint: #6f6a61;
+  --pn-hover: rgba(255, 255, 255, 0.055);
+  --pn-backdrop:
+    radial-gradient(1200px 520px at 78% -12%, rgba(217, 119, 87, 0.12), transparent 60%),
+    radial-gradient(900px 480px at 0% 112%, rgba(139, 92, 246, 0.07), transparent 55%),
+    #1a1815;
+}
+
+/* Claude-coral accent token (available for both themes) */
+:root { --pn-accent: #c2603d; }
+.dark { --pn-accent: #d97757; }
+
+/* Code / monospace defaults (Claude Code-style) */
+:root {
+  --pn-code: "SF Mono", "JetBrains Mono", "Cascadia Code", "Fira Code", ui-monospace, Menlo, Monaco, "Courier New", monospace;
+  --pn-code-size: 20px;
+}
+.font-mono, pre, code, kbd, samp, textarea.code {
+  font-family: var(--pn-code);
+}
+.pn-code-size { font-size: var(--pn-code-size); }
+.pn-app     { background: var(--pn-backdrop); color: var(--pn-text); }
+.pn-surface { background: var(--pn-surface); }
+.pn-solid-bg{ background: var(--pn-solid); }
+.pn-bar     { background: var(--pn-bar); }
+.pn-bd      { border-color: var(--pn-border); }
+.pn-text    { color: var(--pn-text); }
+.pn-muted   { color: var(--pn-muted); }
+.pn-faint   { color: var(--pn-faint); }
+.pn-hover:hover { background: var(--pn-hover); }
 
 /* Design System Colors */
 :root {
@@ -112,9 +212,7 @@ body {
 button {
   font-family: inherit;
   cursor: pointer;
-  border: none;
   transition: all 200ms ease;
-  min-height: 40px;
 }
 
 button:disabled {

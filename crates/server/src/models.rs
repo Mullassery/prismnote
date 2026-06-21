@@ -45,7 +45,12 @@ pub struct Output {
 
 #[derive(Deserialize)]
 pub struct ExecuteCellRequest {
+    #[serde(default)]
     pub cell_id: String,
+    /// Code to execute. When provided, the server runs this directly and does
+    /// not depend on the notebook file on disk or cell-id lookup.
+    #[serde(default)]
+    pub code: Option<String>,
 }
 
 #[derive(Serialize)]
