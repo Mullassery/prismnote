@@ -52,6 +52,34 @@ def _bootstrap():
     except Exception:
         pass
 
+    # Dynamic input widgets (Databricks dbutils.widgets-style). prism.input/slider/
+    # select/checkbox render a control and return its current value; the value
+    # persists across runs and is set by the UI before re-running the cell.
+    class _Prism:
+        def __init__(self):
+            self._vals = {}
+            self._widgets = []
+        def _set(self, name, value):
+            self._vals[name] = value
+        def _w(self, spec, default):
+            spec = dict(spec)
+            val = self._vals.get(spec["name"], default)
+            spec["value"] = val
+            self._widgets.append(spec)
+            return val
+        def input(self, name, default=""):
+            return self._w({"type": "text", "name": name}, default)
+        def slider(self, name, min=0, max=100, default=None):
+            return self._w({"type": "slider", "name": name, "min": min, "max": max},
+                           default if default is not None else min)
+        def select(self, name, options, default=None):
+            opts = list(options)
+            return self._w({"type": "select", "name": name, "options": opts},
+                           default if default is not None else (opts[0] if opts else None))
+        def checkbox(self, name, default=False):
+            return self._w({"type": "checkbox", "name": name}, default)
+    _ns["prism"] = _Prism()
+
 _bootstrap()
 
 def _mime_bundle(val):
@@ -101,6 +129,9 @@ def _capture_figures(outputs):
 def _run(src):
     outputs = []
     out, err = io.StringIO(), io.StringIO()
+    pr = _ns.get("prism")
+    if pr is not None:
+        pr._widgets = []  # collect widgets declared during this run
     try:
         tree = ast.parse(src, mode="exec")
         last = None
@@ -113,6 +144,10 @@ def _run(src):
             if last is not None:
                 val = eval(compile(last, "<cell>", "eval"), _ns)
         so, se = out.getvalue(), err.getvalue()
+        if pr is not None and getattr(pr, "_widgets", None):
+            for w in pr._widgets:
+                outputs.append({"output_type": "display_data",
+                                "data": {"application/vnd.prismnote.widget+json": w}, "metadata": {}})
         if so:
             outputs.append({"output_type": "stream", "name": "stdout", "text": [so]})
         if se:

@@ -6,9 +6,41 @@ import DataFrameView from './DataFrameView'
 
 interface OutputProps {
   output: any
+  onWidget?: (name: string, value: any) => void
 }
 
 const DF_MIME = 'application/vnd.prismnote.df+json'
+const WIDGET_MIME = 'application/vnd.prismnote.widget+json'
+
+function WidgetControl({ spec, onChange }: { spec: any; onChange?: (name: string, value: any) => void }) {
+  const fire = (v: any) => onChange?.(spec.name, v)
+  return (
+    <div className="flex items-center gap-2 py-1 text-[13px] text-gray-200">
+      <label className="text-gray-400 min-w-[90px]">{spec.name}</label>
+      {spec.type === 'text' && (
+        <input defaultValue={spec.value ?? ''} onBlur={(e) => fire(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && fire((e.target as HTMLInputElement).value)}
+          className="px-2 py-1 rounded bg-white/5 border border-white/10 outline-none focus:border-violet-500" />
+      )}
+      {spec.type === 'slider' && (
+        <span className="flex items-center gap-2">
+          <input type="range" min={spec.min} max={spec.max} defaultValue={spec.value}
+            onChange={(e) => fire(Number(e.target.value))} />
+          <span className="tabular-nums text-gray-400 w-10">{spec.value}</span>
+        </span>
+      )}
+      {spec.type === 'select' && (
+        <select defaultValue={spec.value} onChange={(e) => fire(e.target.value)}
+          className="px-2 py-1 rounded bg-white/5 border border-white/10 outline-none">
+          {(spec.options ?? []).map((o: any) => <option key={String(o)} value={o}>{String(o)}</option>)}
+        </select>
+      )}
+      {spec.type === 'checkbox' && (
+        <input type="checkbox" defaultChecked={!!spec.value} onChange={(e) => fire(e.target.checked)} />
+      )}
+    </div>
+  )
+}
 
 function ErrorOutput({ output }: { output: any }) {
   const [showTrace, setShowTrace] = useState(false)
@@ -44,7 +76,11 @@ function ErrorOutput({ output }: { output: any }) {
   )
 }
 
-export default function Output({ output }: OutputProps) {
+export default function Output({ output, onWidget }: OutputProps) {
+  // Interactive input widgets (prism.input/slider/select/checkbox).
+  const widget = output.data?.[WIDGET_MIME]
+  if (widget) return <WidgetControl spec={widget} onChange={onWidget} />
+
   // %md magic and any text/markdown bundle render as formatted markdown.
   const md = output.data?.['text/markdown']
   if (md) {

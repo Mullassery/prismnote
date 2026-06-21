@@ -152,6 +152,25 @@ export default function Cell({ cell, cellIndex }: CellProps) {
     }
   }
 
+  // A dynamic-form widget changed: set its value in the kernel, then re-run this
+  // cell so downstream logic recomputes with the new input.
+  const onWidget = async (name: string, value: any) => {
+    if (!currentNotebook) return
+    try {
+      await fetch(`/api/notebooks/${currentNotebook.id}/execute`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          cell_id: '__widget__',
+          code: `prism._set(${JSON.stringify(name)}, ${JSON.stringify(value)})`,
+        }),
+      })
+      await executeCell(cellIndex)
+    } catch {
+      /* ignore */
+    }
+  }
+
   const acceptProposal = () => {
     if (proposal == null) return
     updateCell(cellIndex, { source: proposal.split(/(?<=\n)/) })
@@ -351,7 +370,7 @@ export default function Cell({ cell, cellIndex }: CellProps) {
       {cell.outputs.length > 0 && (
         <div className="border-t pn-bd bg-[var(--pn-hover)] p-4">
           {cell.outputs.map((output: any, idx: number) => (
-            <Output key={idx} output={output} />
+            <Output key={idx} output={output} onWidget={onWidget} />
           ))}
           {cell.cell_type === 'code' && (
             <div className="mt-2 flex justify-end">
