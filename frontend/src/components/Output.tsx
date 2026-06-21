@@ -2,10 +2,13 @@ import MDPreview from '@uiw/react-markdown-preview'
 import { useState } from 'react'
 import { AlertTriangle, ChevronRight } from 'lucide-react'
 import { parseTraceback } from '../lib/pyerror'
+import DataFrameView from './DataFrameView'
 
 interface OutputProps {
   output: any
 }
+
+const DF_MIME = 'application/vnd.prismnote.df+json'
 
 function ErrorOutput({ output }: { output: any }) {
   const [showTrace, setShowTrace] = useState(false)
@@ -53,6 +56,12 @@ export default function Output({ output }: OutputProps) {
         />
       </div>
     )
+  }
+
+  // DataFrame results get a Table/Bar/Line switcher.
+  const dfPayload = output.data?.[DF_MIME]
+  if (dfPayload && (output.output_type === 'execute_result' || output.output_type === 'display_data')) {
+    return <DataFrameView df={dfPayload} html={output.data?.['text/html']} />
   }
 
   switch (output.output_type) {

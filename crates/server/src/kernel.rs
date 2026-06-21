@@ -55,7 +55,8 @@ def _bootstrap():
 _bootstrap()
 
 def _mime_bundle(val):
-    """Build a Jupyter-style MIME bundle for a value (text + optional HTML)."""
+    """Build a Jupyter-style MIME bundle for a value (text + optional HTML +
+    structured table data so the UI can chart it)."""
     bundle = {"text/plain": repr(val)}
     fn = getattr(val, "_repr_html_", None)   # pandas DataFrame, etc.
     if callable(fn):
@@ -65,6 +66,15 @@ def _mime_bundle(val):
                 bundle["text/html"] = html
         except Exception:
             pass
+    # Structured payload for the chart switcher (DataFrames only, capped rows).
+    try:
+        import pandas as _pd
+        if isinstance(val, _pd.DataFrame):
+            bundle["application/vnd.prismnote.df+json"] = json.loads(
+                val.head(500).to_json(orient="split", date_format="iso")
+            )
+    except Exception:
+        pass
     return bundle
 
 def _capture_figures(outputs):
