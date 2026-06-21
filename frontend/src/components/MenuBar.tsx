@@ -9,6 +9,7 @@ interface MenuBarProps {
   panels: { files: boolean; terminal: boolean; ai: boolean }
   onTogglePanel: (panel: 'files' | 'terminal' | 'ai') => void
   onOpenSearch?: () => void
+  onOpenJobs?: () => void
 }
 
 interface MenuItem {
@@ -20,7 +21,7 @@ interface MenuItem {
   disabled?: boolean
 }
 
-export default function MenuBar({ theme, onToggleTheme, panels, onTogglePanel, onOpenSearch }: MenuBarProps) {
+export default function MenuBar({ theme, onToggleTheme, panels, onTogglePanel, onOpenSearch, onOpenJobs }: MenuBarProps) {
   const [open, setOpen] = useState<string | null>(null)
   const barRef = useRef<HTMLDivElement>(null)
   const {
@@ -114,6 +115,10 @@ export default function MenuBar({ theme, onToggleTheme, panels, onTogglePanel, o
     Run: [
       { label: 'Run All Cells', shortcut: '⌘⇧⏎', action: runAll, disabled: !currentNotebook },
       { label: 'Add & Run Cell', action: () => addCell('code'), disabled: !currentNotebook },
+    ],
+    Jobs: [
+      { label: 'Open Jobs…', action: () => onOpenJobs?.() },
+      { label: 'Run Current Notebook as Job…', action: () => onOpenJobs?.(), disabled: !currentNotebook },
     ],
     Help: [
       { label: 'About PrismNote', action: () => window.alert('PrismNote — a modern, open-source data-science notebook.\nRust engine · React UI.') },

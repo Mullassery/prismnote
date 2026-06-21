@@ -668,6 +668,214 @@ pub async fn ai_edit(
     }
 }
 
+// ── Jobs: run a whole notebook as a unit, optionally on a schedule ───────────
+use crate::jobs::{Job, JobRun, Schedule};
+
+#[derive(Deserialize)]
+pub struct CreateJobRequest {
+    pub name: String,
+    pub cells: Vec<String>,
+    #[serde(default)]
+    pub schedule: Option<Schedule>,
+}
+
+/// Execute a job's code cells in order against the shared kernel, returning a
+/// run summary. Each cell that emits an `error` output counts as failed.
+async fn execute_job_cells(state: &Arc<AppState>, cells: &[String]) -> JobRun {
+    let started = chrono::Local::now().to_rfc3339();
+    let mut ok = 0usize;
+    let mut failed = 0usize;
+    let mut log = String::new();
+
+    let mut kernel = state.kernel.lock().await;
+    match kernel.as_mut() {
+        Some(k) => {
+            for (i, code) in cells.iter().enumerate() {
+                if code.trim().is_empty() {
+                    continue;
+                }
+                match k.execute(code).await {
+                    Ok((_s, outputs)) => {
+                        let has_err = outputs.iter().any(|o| {
+                            o.get("output_type").and_then(|v| v.as_str()) == Some("error")
+                        });
+                        if has_err {
+                            failed += 1;
+                            log.push_str(&format!("cell {} ❌ error\n", i + 1));
+                        } else {
+                            ok += 1;
+                            log.push_str(&format!("cell {} ✓\n", i + 1));
+                        }
+                    }
+                    Err(e) => {
+                        failed += 1;
+                        log.push_str(&format!("cell {} ❌ {}\n", i + 1, e));
+                    }
+                }
+            }
+        }
+        None => {
+            log.push_str("kernel unavailable\n");
+            failed += 1;
+        }
+    }
+
+    JobRun {
+        started_at: started,
+        finished_at: chrono::Local::now().to_rfc3339(),
+        status: if failed == 0 { "success".into() } else { "failed".into() },
+        cells_ok: ok,
+        cells_failed: failed,
+        log,
+    }
+}
+
+/// Run a single job by id, recording the run in its history (capped at 20).
+async fn run_job(state: &Arc<AppState>, id: &str) -> Option<JobRun> {
+    let cells = {
+        let jobs = state.jobs.lock().await;
+        jobs.iter().find(|j| j.id == id)?.cells.clone()
+    };
+    let run = execute_job_cells(state, &cells).await;
+    let mut jobs = state.jobs.lock().await;
+    if let Some(job) = jobs.iter_mut().find(|j| j.id == id) {
+        job.last_run = Some(run.finished_at.clone());
+        job.last_status = Some(run.status.clone());
+        job.runs.push(run.clone());
+        let len = job.runs.len();
+        if len > 20 {
+            job.runs.drain(0..len - 20);
+        }
+    }
+    crate::jobs::save_jobs(&jobs);
+    Some(run)
+}
+
+/// Called every minute by the scheduler: run any job whose schedule is due.
+pub async fn run_due_jobs(state: &Arc<AppState>) {
+    let now = chrono::Local::now();
+    let due: Vec<String> = {
+        let jobs = state.jobs.lock().await;
+        jobs.iter()
+            .filter(|j| schedule_due(&j.schedule, j.last_run.as_deref(), now))
+            .map(|j| j.id.clone())
+            .collect()
+    };
+    for id in due {
+        let _ = run_job(state, &id).await;
+    }
+}
+
+fn schedule_due(
+    sched: &Schedule,
+    last_run: Option<&str>,
+    now: chrono::DateTime<chrono::Local>,
+) -> bool {
+    use chrono::{Datelike, Timelike};
+    let last = last_run.and_then(|s| chrono::DateTime::parse_from_rfc3339(s).ok());
+    match sched.kind.as_str() {
+        "interval" => {
+            let mins = sched.minutes.unwrap_or(0);
+            if mins == 0 {
+                return false;
+            }
+            match last {
+                Some(l) => (now.signed_duration_since(l)).num_minutes() >= mins as i64,
+                None => true, // never run → run now
+            }
+        }
+        "daily" => {
+            let t = sched.time.as_deref().unwrap_or("");
+            let parts: Vec<&str> = t.split(':').collect();
+            if parts.len() != 2 {
+                return false;
+            }
+            let (h, m) = (parts[0].parse::<u32>().ok(), parts[1].parse::<u32>().ok());
+            let (h, m) = match (h, m) {
+                (Some(h), Some(m)) => (h, m),
+                _ => return false,
+            };
+            if now.hour() != h || now.minute() != m {
+                return false;
+            }
+            // don't run twice in the same minute/day
+            match last {
+                Some(l) => !(l.year() == now.year() && l.ordinal() == now.ordinal()),
+                None => true,
+            }
+        }
+        _ => false, // manual
+    }
+}
+
+pub async fn list_jobs(State(state): State<Arc<AppState>>) -> Json<serde_json::Value> {
+    let jobs = state.jobs.lock().await;
+    // list view omits run logs for brevity
+    let summary: Vec<serde_json::Value> = jobs
+        .iter()
+        .map(|j| {
+            json!({
+                "id": j.id, "name": j.name, "schedule": j.schedule,
+                "created_at": j.created_at, "last_run": j.last_run,
+                "last_status": j.last_status, "cells": j.cells.len(),
+                "runs": j.runs.len(),
+            })
+        })
+        .collect();
+    Json(json!({ "jobs": summary }))
+}
+
+pub async fn get_job(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+) -> (StatusCode, Json<serde_json::Value>) {
+    let jobs = state.jobs.lock().await;
+    match jobs.iter().find(|j| j.id == id) {
+        Some(j) => (StatusCode::OK, Json(serde_json::to_value(j).unwrap())),
+        None => (StatusCode::NOT_FOUND, Json(json!({ "error": "job not found" }))),
+    }
+}
+
+pub async fn create_job(
+    State(state): State<Arc<AppState>>,
+    Json(req): Json<CreateJobRequest>,
+) -> (StatusCode, Json<Job>) {
+    let job = Job {
+        id: Uuid::new_v4().to_string(),
+        name: req.name,
+        cells: req.cells,
+        schedule: req.schedule.unwrap_or_default(),
+        created_at: chrono::Local::now().to_rfc3339(),
+        last_run: None,
+        last_status: None,
+        runs: vec![],
+    };
+    let mut jobs = state.jobs.lock().await;
+    jobs.push(job.clone());
+    crate::jobs::save_jobs(&jobs);
+    (StatusCode::CREATED, Json(job))
+}
+
+pub async fn delete_job(State(state): State<Arc<AppState>>, Path(id): Path<String>) -> StatusCode {
+    let mut jobs = state.jobs.lock().await;
+    let before = jobs.len();
+    jobs.retain(|j| j.id != id);
+    if jobs.len() != before {
+        crate::jobs::save_jobs(&jobs);
+    }
+    StatusCode::NO_CONTENT
+}
+
+pub async fn run_job_now(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+) -> (StatusCode, Json<serde_json::Value>) {
+    match run_job(&state, &id).await {
+        Some(run) => (StatusCode::OK, Json(serde_json::to_value(run).unwrap())),
+        None => (StatusCode::NOT_FOUND, Json(json!({ "error": "job not found" }))),
+    }
+}
+
 // Database connectors
 #[derive(Serialize)]
 pub struct DatabaseList {

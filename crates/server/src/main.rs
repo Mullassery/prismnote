@@ -16,6 +16,7 @@ mod docker_executor;
 mod execution_pipeline;
 mod file_manager;
 mod files;
+mod jobs;
 mod kernel;
 mod library_advisor;
 mod models;
@@ -50,6 +51,8 @@ pub struct AppState {
     kernel: tokio::sync::Mutex<Option<kernel::KernelManager>>,
     /// Live interpreter PID (0 = none), used to interrupt a running cell.
     kernel_pid: std::sync::Arc<std::sync::atomic::AtomicI32>,
+    /// Saved notebooks that run as a unit (optionally scheduled), Airflow-style.
+    jobs: tokio::sync::Mutex<Vec<jobs::Job>>,
 }
 
 #[tokio::main]
@@ -108,7 +111,19 @@ async fn main() -> anyhow::Result<()> {
         ai_config_path,
         kernel: tokio::sync::Mutex::new(kernel),
         kernel_pid,
+        jobs: tokio::sync::Mutex::new(jobs::load_jobs()),
     });
+
+    // Background scheduler: every 60s, run any jobs whose schedule is due.
+    {
+        let sched_state = state.clone();
+        tokio::spawn(async move {
+            loop {
+                tokio::time::sleep(std::time::Duration::from_secs(60)).await;
+                api::run_due_jobs(&sched_state).await;
+            }
+        });
+    }
 
     let api_routes = Router::new()
         .route("/notebooks", get(api::list_notebooks).post(api::create_notebook))
@@ -116,6 +131,9 @@ async fn main() -> anyhow::Result<()> {
         .route("/notebooks/:id/execute", post(api::execute_cell))
         .route("/kernel/interrupt", post(api::kernel_interrupt))
         .route("/kernel/restart", post(api::kernel_restart))
+        .route("/jobs", get(api::list_jobs).post(api::create_job))
+        .route("/jobs/:id", get(api::get_job).delete(api::delete_job))
+        .route("/jobs/:id/run", post(api::run_job_now))
         .route("/terminal/exec", post(api::terminal_exec))
         .route("/notebooks/:id/suggest-libraries", post(api::suggest_libraries))
         .route("/notebooks/:id/libraries/ignore", post(api::ignore_library))
