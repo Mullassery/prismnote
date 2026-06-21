@@ -309,6 +309,20 @@ pub async fn execute_cell(
         Some(k) => {
             // Route the cell by its leading magic (Zeppelin-style interpreters).
             let (magic, body) = parse_magic(&code);
+
+            // Live-output streaming: forward stdout chunks to WS clients tagged
+            // with this cell id. Additive — the response below is authoritative.
+            let (stx, mut srx) = tokio::sync::mpsc::unbounded_channel::<String>();
+            {
+                let btx = state.stream_tx.clone();
+                let cid = req.cell_id.clone();
+                tokio::spawn(async move {
+                    while let Some(chunk) = srx.recv().await {
+                        let _ = btx.send(json!({ "cell_id": cid, "text": chunk }).to_string());
+                    }
+                });
+            }
+
             let result = match magic {
                 Magic::Sql => {
                     // Run SQL in-process via DuckDB inside the shared Python kernel.
@@ -331,7 +345,7 @@ pub async fn execute_cell(
                     "data": {"text/markdown": body},
                     "metadata": {},
                 })]),
-                Magic::Python => match k.execute(&body).await {
+                Magic::Python => match k.execute_streaming(&body, Some(stx)).await {
                     Ok((_stdout, outputs)) => Ok(outputs),
                     Err(e) => Err(e),
                 },

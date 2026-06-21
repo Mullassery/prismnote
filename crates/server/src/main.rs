@@ -53,6 +53,9 @@ pub struct AppState {
     kernel_pid: std::sync::Arc<std::sync::atomic::AtomicI32>,
     /// Saved notebooks that run as a unit (optionally scheduled), Airflow-style.
     jobs: tokio::sync::Mutex<Vec<jobs::Job>>,
+    /// Live cell output stream (JSON {cell_id, text}) broadcast to WebSocket
+    /// clients. Purely additive — the HTTP response is still authoritative.
+    stream_tx: tokio::sync::broadcast::Sender<String>,
 }
 
 #[tokio::main]
@@ -112,6 +115,7 @@ async fn main() -> anyhow::Result<()> {
         kernel: tokio::sync::Mutex::new(kernel),
         kernel_pid,
         jobs: tokio::sync::Mutex::new(jobs::load_jobs()),
+        stream_tx: tokio::sync::broadcast::channel(2048).0,
     });
 
     // Background scheduler: every 60s, run any jobs whose schedule is due.

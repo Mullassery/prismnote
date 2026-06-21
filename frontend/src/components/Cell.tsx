@@ -6,6 +6,7 @@ import Output from './Output'
 import { useNotebookStore } from '../hooks/useNotebook'
 import { aiEdit, aiFix, aiExplain } from '../api/ai'
 import { interruptKernel } from '../api/kernel'
+import { subscribeCellStream } from '../api/stream'
 import { registerOllamaCompletions } from '../api/autocomplete'
 import { parseTraceback } from '../lib/pyerror'
 
@@ -33,6 +34,7 @@ export default function Cell({ cell, cellIndex }: CellProps) {
   const [isEditing, setIsEditing] = useState(!cell.source.length)
   const { updateCell, deleteCell, executeCell, currentNotebook } = useNotebookStore()
   const [isExecuting, setIsExecuting] = useState(false)
+  const [liveOut, setLiveOut] = useState('')
 
   // AI state
   const [aiOpen, setAiOpen] = useState(false)
@@ -86,12 +88,20 @@ export default function Cell({ cell, cellIndex }: CellProps) {
     monaco.editor.setModelMarkers(model, 'prismnote', [])
   }, [cellError])
 
+  // Live stdout streaming for this cell (cleared when the final output lands).
+  useEffect(() => {
+    if (cell.cell_type !== 'code') return
+    return subscribeCellStream(cell.id, (text) => setLiveOut((prev) => prev + text))
+  }, [cell.id, cell.cell_type])
+
   const handleRun = async () => {
     setIsExecuting(true)
+    setLiveOut('')
     try {
       await executeCell(cellIndex)
     } finally {
       setIsExecuting(false)
+      setLiveOut('')
     }
   }
 
@@ -364,6 +374,15 @@ export default function Cell({ cell, cellIndex }: CellProps) {
             <button onClick={() => setExplanation(null)} className="p-0.5 rounded pn-hover pn-faint"><X size={13} /></button>
           </div>
           <MDPreview source={explanation} style={{ backgroundColor: 'transparent', color: 'inherit', fontSize: 13 }} />
+        </div>
+      )}
+
+      {isExecuting && liveOut && (
+        <div className="border-t pn-bd bg-[var(--pn-hover)] p-4">
+          <div className="text-[10px] uppercase tracking-wide pn-faint mb-1 flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> live
+          </div>
+          <pre className="whitespace-pre-wrap font-mono text-sm pn-text">{liveOut}</pre>
         </div>
       )}
 

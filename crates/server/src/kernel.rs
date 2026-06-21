@@ -126,6 +126,23 @@ def _capture_figures(outputs):
     except Exception:
         pass
 
+# Tee stdout: buffer it (for the final result) AND emit each chunk immediately as
+# a __PRISM_STREAM__ line so the UI can show output live.
+class _Tee:
+    def __init__(self, buf):
+        self.buf = buf
+    def write(self, s):
+        self.buf.write(s)
+        if s:
+            try:
+                sys.__stdout__.write("__PRISM_STREAM__" + json.dumps(s) + "\n")
+                sys.__stdout__.flush()
+            except Exception:
+                pass
+        return len(s)
+    def flush(self):
+        pass
+
 def _run(src):
     outputs = []
     out, err = io.StringIO(), io.StringIO()
@@ -138,7 +155,7 @@ def _run(src):
         if tree.body and isinstance(tree.body[-1], ast.Expr):
             last = ast.Expression(tree.body.pop().value)
         val = None
-        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+        with contextlib.redirect_stdout(_Tee(out)), contextlib.redirect_stderr(err):
             if tree.body:
                 exec(compile(tree, "<cell>", "exec"), _ns)
             if last is not None:
@@ -190,6 +207,7 @@ _main()
 "#;
 
 const RESULT_PREFIX: &str = "__PRISM_RESULT__";
+const STREAM_PREFIX: &str = "__PRISM_STREAM__";
 
 pub struct KernelManager {
     child: Option<Child>,
@@ -265,6 +283,15 @@ impl KernelManager {
     }
 
     pub async fn execute(&mut self, code: &str) -> Result<(Vec<String>, Vec<Value>)> {
+        self.execute_streaming(code, None).await
+    }
+
+    /// Like `execute`, but forwards live stdout chunks to `stream` as they happen.
+    pub async fn execute_streaming(
+        &mut self,
+        code: &str,
+        stream: Option<tokio::sync::mpsc::UnboundedSender<String>>,
+    ) -> Result<(Vec<String>, Vec<Value>)> {
         self.execution_count += 1;
 
         // pip installs run as a one-off so we don't block the shared interpreter.
@@ -272,7 +299,7 @@ impl KernelManager {
             return self.handle_package_install(code).await;
         }
 
-        match tokio::time::timeout(self.timeout, self.execute_internal(code)).await {
+        match tokio::time::timeout(self.timeout, self.execute_internal(code, stream)).await {
             Ok(Ok(outputs)) => Ok((vec![], outputs)),
             Ok(Err(e)) => Err(e),
             Err(_) => {
@@ -287,7 +314,11 @@ impl KernelManager {
         }
     }
 
-    async fn execute_internal(&mut self, code: &str) -> Result<Vec<Value>> {
+    async fn execute_internal(
+        &mut self,
+        code: &str,
+        stream: Option<tokio::sync::mpsc::UnboundedSender<String>>,
+    ) -> Result<Vec<Value>> {
         let stdin = self
             .stdin
             .as_mut()
@@ -315,6 +346,15 @@ impl KernelManager {
             if let Some(rest) = line.strip_prefix(RESULT_PREFIX) {
                 let res: Value = serde_json::from_str(rest.trim_end())?;
                 return Self::build_outputs(res);
+            }
+            if let Some(rest) = line.strip_prefix(STREAM_PREFIX) {
+                // live stdout chunk (JSON-encoded string) → forward if streaming
+                if let Some(tx) = &stream {
+                    if let Ok(Value::String(s)) = serde_json::from_str::<Value>(rest.trim_end()) {
+                        let _ = tx.send(s);
+                    }
+                }
+                continue;
             }
             // Anything else is stray driver chatter — ignore it.
         }
