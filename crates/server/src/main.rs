@@ -193,6 +193,8 @@ async fn main() -> anyhow::Result<()> {
         .route("/databases", get(api::list_databases).post(api::create_database))
         .route("/databases/:id/test", post(api::test_database))
         .route("/databases/:id/query", post(api::execute_database_query))
+        .route("/databases/:id/query-code", post(api::db_query_code))
+        .route("/cloud-warehouses/:id/query-code", post(api::warehouse_query_code))
         .route("/databases/:id", delete(api::delete_database))
         .route("/sql/execute", post(api::execute_sql))
         .route("/sql/optimize", post(api::get_query_optimizations))

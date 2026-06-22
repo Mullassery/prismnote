@@ -1264,6 +1264,54 @@ fn db_query_py(conn: &crate::db::DatabaseConnection, query: &str) -> Result<Stri
     }
 }
 
+/// Turn generated query code (whose last line is the resulting DataFrame
+/// expression) into a notebook-cell-friendly snippet: assign it to `var` and
+/// display it. Reproducible and editable in the notebook.
+fn to_cell_code(code: &str, var: &str) -> String {
+    let mut lines: Vec<&str> = code.lines().collect();
+    match lines.pop() {
+        Some(last) => {
+            let head = lines.join("\n");
+            let sep = if head.is_empty() { "" } else { "\n" };
+            format!("{head}{sep}{var} = {expr}\n{var}", expr = last.trim())
+        }
+        None => code.to_string(),
+    }
+}
+
+#[derive(Deserialize)]
+pub struct QueryCodeRequest {
+    pub query: String,
+}
+
+pub async fn db_query_code(
+    Path(id): Path<String>,
+    Json(req): Json<QueryCodeRequest>,
+) -> (StatusCode, Json<serde_json::Value>) {
+    let conn = match load_databases().into_iter().find(|d| d.id == id) {
+        Some(c) => c,
+        None => return (StatusCode::NOT_FOUND, Json(json!({ "error": "connection not found" }))),
+    };
+    match db_query_py(&conn, &req.query) {
+        Ok(code) => (StatusCode::OK, Json(json!({ "code": to_cell_code(&code, "df") }))),
+        Err(e) => (StatusCode::BAD_REQUEST, Json(json!({ "error": e }))),
+    }
+}
+
+pub async fn warehouse_query_code(
+    Path(id): Path<String>,
+    Json(req): Json<QueryCodeRequest>,
+) -> (StatusCode, Json<serde_json::Value>) {
+    let conn = match load_warehouses().into_iter().find(|c| c.id == id) {
+        Some(c) => c,
+        None => return (StatusCode::NOT_FOUND, Json(json!({ "error": "warehouse connection not found" }))),
+    };
+    match warehouse_query_py(&conn, &req.query) {
+        Ok(code) => (StatusCode::OK, Json(json!({ "code": to_cell_code(&code, "df") }))),
+        Err(e) => (StatusCode::BAD_REQUEST, Json(json!({ "error": e }))),
+    }
+}
+
 // Database connectors
 #[derive(Serialize)]
 pub struct DatabaseList {

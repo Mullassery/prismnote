@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
-import { Database, X, Plus, Trash2, Play, Loader2, Cloud, AlertTriangle } from 'lucide-react'
+import { Database, X, Plus, Trash2, Play, Loader2, Cloud, AlertTriangle, NotebookPen } from 'lucide-react'
 import {
   listDatabases, createDatabase, deleteDatabase, queryDatabase,
-  listWarehouses, queryWarehouse, type DbConnection, type QueryResult,
+  listWarehouses, queryWarehouse, queryCode, type DbConnection, type QueryResult,
 } from '../api/data'
 import DataFrameView from './DataFrameView'
+import { useNotebookStore } from '../hooks/useNotebook'
 
 type Conn = { id: string; name: string; kind: 'db' | 'warehouse'; sub: string }
 
@@ -45,6 +46,24 @@ export default function DataPanel({ onClose }: { onClose: () => void }) {
       setError(e?.response?.data?.error || e?.message || 'query failed')
     } finally {
       setRunning(false)
+    }
+  }
+
+  const insertAsCell = async () => {
+    if (!sel) return
+    try {
+      const code = await queryCode(sel.kind, sel.id, sql)
+      const store = useNotebookStore.getState() as any
+      if (!store.currentNotebook) {
+        await store.createNotebook('SQL')
+      }
+      store.addCell('code')
+      const s2 = useNotebookStore.getState() as any
+      const idx = s2.currentNotebook.cells.length - 1
+      s2.updateCell(idx, { source: code.split(/(?<=\n)/) })
+      onClose() // jump back to the notebook with the new cell
+    } catch (e: any) {
+      setError(e?.response?.data?.error || e?.message || 'could not generate cell')
     }
   }
 
@@ -113,6 +132,10 @@ export default function DataPanel({ onClose }: { onClose: () => void }) {
             <div className="mt-2 flex items-center gap-2">
               <button onClick={run} disabled={!sel || running} className="flex items-center gap-1 px-3 py-1.5 rounded prism-bg text-white text-[13px] disabled:opacity-40">
                 {running ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />} Run
+              </button>
+              <button onClick={insertAsCell} disabled={!sel} title="Insert as a reproducible code cell (DataFrame `df`)"
+                className="flex items-center gap-1 px-3 py-1.5 rounded bg-white/5 hover:bg-white/10 pn-text text-[13px] disabled:opacity-40">
+                <NotebookPen size={14} /> Insert into notebook
               </button>
               {sel && <span className="text-[12px] pn-faint">{sel.kind === 'warehouse' ? 'cloud warehouse' : sel.sub} · {sel.name}</span>}
             </div>

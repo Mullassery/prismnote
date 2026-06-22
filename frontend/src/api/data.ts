@@ -52,3 +52,12 @@ export const queryWarehouse = (id: string, query: string) =>
   axios
     .post<QueryResult>(`/api/cloud-warehouses/${id}/query`, { query })
     .then((r) => r.data)
+
+/** Get reproducible Python (DataFrame `df`) for this query, to drop into a cell. */
+export const queryCode = (kind: 'db' | 'warehouse', id: string, query: string) =>
+  axios
+    .post<{ code: string }>(
+      kind === 'db' ? `/api/databases/${id}/query-code` : `/api/cloud-warehouses/${id}/query-code`,
+      { query },
+    )
+    .then((r) => r.data.code)
