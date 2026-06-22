@@ -581,6 +581,8 @@ pub async fn ai_complete(
 #[derive(Deserialize)]
 pub struct FsQuery {
     pub path: Option<String>,
+    #[serde(default)]
+    pub show_hidden: Option<bool>,
 }
 
 fn default_dir() -> String {
@@ -603,11 +605,12 @@ pub async fn fs_list(Query(q): Query<FsQuery>) -> (StatusCode, Json<serde_json::
         }
     };
 
+    let show_hidden = q.show_hidden.unwrap_or(false);
     let mut entries: Vec<serde_json::Value> = vec![];
     for e in read.flatten() {
         let name = e.file_name().to_string_lossy().to_string();
-        if name.starts_with('.') {
-            continue; // hide dotfiles by default
+        if name.starts_with('.') && !show_hidden {
+            continue; // hide dotfiles unless explicitly requested
         }
         let is_dir = e.file_type().map(|t| t.is_dir()).unwrap_or(false);
         entries.push(json!({
@@ -647,6 +650,67 @@ pub async fn fs_read(Query(q): Query<FsQuery>) -> (StatusCode, Json<serde_json::
             Json(json!({ "error": format!("cannot read {}: {}", path, e) })),
         ),
     }
+}
+
+// File operations for the server-side browser. Local-first: these act on the
+// machine running PrismNote (same trust model as fs_list/fs_read).
+#[derive(Deserialize)]
+pub struct FsEntryReq {
+    pub path: String, // parent directory
+    pub name: String,
+}
+#[derive(Deserialize)]
+pub struct FsRenameReq {
+    pub path: String, // existing file/dir
+    pub new_name: String,
+}
+#[derive(Deserialize)]
+pub struct FsWriteReq {
+    pub path: String, // full file path
+    pub content: String,
+}
+#[derive(Deserialize)]
+pub struct FsPathReq {
+    pub path: String,
+}
+
+fn fs_ok(r: std::io::Result<()>, path: String) -> (StatusCode, Json<serde_json::Value>) {
+    match r {
+        Ok(()) => (StatusCode::OK, Json(json!({ "ok": true, "path": path }))),
+        Err(e) => (StatusCode::BAD_REQUEST, Json(json!({ "ok": false, "error": e.to_string() }))),
+    }
+}
+
+pub async fn fs_mkdir(Json(req): Json<FsEntryReq>) -> (StatusCode, Json<serde_json::Value>) {
+    let p = std::path::Path::new(&req.path).join(&req.name);
+    let path = p.to_string_lossy().to_string();
+    fs_ok(std::fs::create_dir_all(&p), path)
+}
+
+pub async fn fs_new_file(Json(req): Json<FsEntryReq>) -> (StatusCode, Json<serde_json::Value>) {
+    let p = std::path::Path::new(&req.path).join(&req.name);
+    if p.exists() {
+        return (StatusCode::BAD_REQUEST, Json(json!({ "ok": false, "error": "already exists" })));
+    }
+    let path = p.to_string_lossy().to_string();
+    fs_ok(std::fs::write(&p, b"").map(|_| ()), path)
+}
+
+pub async fn fs_write(Json(req): Json<FsWriteReq>) -> (StatusCode, Json<serde_json::Value>) {
+    fs_ok(std::fs::write(&req.path, req.content.as_bytes()).map(|_| ()), req.path.clone())
+}
+
+pub async fn fs_rename(Json(req): Json<FsRenameReq>) -> (StatusCode, Json<serde_json::Value>) {
+    let from = std::path::Path::new(&req.path);
+    let to = from.with_file_name(&req.new_name);
+    let path = to.to_string_lossy().to_string();
+    fs_ok(std::fs::rename(from, &to), path)
+}
+
+pub async fn fs_delete(Json(req): Json<FsPathReq>) -> (StatusCode, Json<serde_json::Value>) {
+    let p = std::path::Path::new(&req.path);
+    let r = if p.is_dir() { std::fs::remove_dir_all(p) } else { std::fs::remove_file(p) };
+    fs_ok(r, req.path.clone())
 }
 
 #[derive(Deserialize)]
