@@ -78,6 +78,10 @@ export function registerOllamaCompletions(monaco: any) {
         return { items: [] }
       }
     },
+    // Monaco requires both on the provider; missing disposeInlineCompletions
+    // throws a TypeError when the editor disposes the provider.
     freeInlineCompletions() {},
+    disposeInlineCompletions() {},
+    handleItemDidShow() {},
   })
 }
