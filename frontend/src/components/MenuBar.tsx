@@ -65,8 +65,10 @@ export default function MenuBar({ theme, onToggleTheme, panels, onTogglePanel, o
   const openFolder = useWorkspace((s) => s.openFolder)
 
   const newNotebook = () => {
-    const name = window.prompt('Notebook name', 'Untitled')
-    if (name) createNotebook(name)
+    const existing = (useNotebookStore.getState() as any).notebooks as { name: string }[]
+    let name = 'Untitled'
+    for (let i = 1; existing.some((n) => n.name === name); i++) name = `Untitled ${i}`
+    createNotebook(name)
   }
 
   // Open a .ipynb from disk and load it directly into the store (no backend).

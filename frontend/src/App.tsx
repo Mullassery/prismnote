@@ -142,9 +142,15 @@ function App() {
 
   const togglePanel = (p: 'files' | 'terminal' | 'ai') => setPanels((s) => ({ ...s, [p]: !s[p] }))
 
+  // Create instantly with a unique default name (rename later). Avoids
+  // window.prompt, which is silently suppressed in embedded browsers, PWAs,
+  // and after Chrome's "prevent additional dialogs" — a common reason the
+  // button appeared to do nothing.
   const newNotebook = () => {
-    const n = window.prompt('Notebook name', 'Untitled')
-    if (n) createNotebook(n)
+    const existing = (useNotebookStore.getState() as any).notebooks as { name: string }[]
+    let name = 'Untitled'
+    for (let i = 1; existing.some((n) => n.name === name); i++) name = `Untitled ${i}`
+    createNotebook(name)
   }
 
   const openFile = async () => {

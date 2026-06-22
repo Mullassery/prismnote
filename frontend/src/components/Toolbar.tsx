@@ -7,7 +7,21 @@ import { useState } from 'react'
 export default function Toolbar() {
   const [isDark, setIsDark] = useState(true)
   const [showAISettings, setShowAISettings] = useState(false)
+  const [editingName, setEditingName] = useState(false)
   const { currentNotebook, saveNotebook } = useNotebookStore()
+
+  // Inline rename: instant-created notebooks start as "Untitled"; click the
+  // title to rename (updates the store; saved on next autosave).
+  const commitName = (value: string) => {
+    setEditingName(false)
+    const name = value.trim()
+    if (!name || !currentNotebook || name === currentNotebook.name) return
+    useNotebookStore.setState((s: any) => ({
+      currentNotebook: { ...s.currentNotebook, name },
+      notebooks: s.notebooks.map((n: any) => (n.id === s.currentNotebook.id ? { ...n, name } : n)),
+    }))
+    setTimeout(() => useNotebookStore.getState().saveNotebook?.(), 0)
+  }
 
   const handleExport = () => {
     if (!currentNotebook) return
@@ -23,7 +37,26 @@ export default function Toolbar() {
   return (
     <div className="h-14 bg-slate-800 border-b border-slate-700 flex items-center justify-between px-4">
       <div className="flex items-center gap-2">
-        <h2 className="text-lg font-semibold text-white">{currentNotebook?.name}</h2>
+        {editingName ? (
+          <input
+            autoFocus
+            defaultValue={currentNotebook?.name}
+            onBlur={(e) => commitName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') commitName((e.target as HTMLInputElement).value)
+              if (e.key === 'Escape') setEditingName(false)
+            }}
+            className="text-lg font-semibold bg-transparent border-b border-white/30 outline-none text-white"
+          />
+        ) : (
+          <h2
+            className="text-lg font-semibold text-white cursor-text hover:opacity-80"
+            title="Click to rename"
+            onClick={() => currentNotebook && setEditingName(true)}
+          >
+            {currentNotebook?.name}
+          </h2>
+        )}
       </div>
 
       <div className="flex items-center gap-3">
