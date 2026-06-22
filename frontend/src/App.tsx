@@ -21,11 +21,12 @@ import {
   PanelBottom,
   Command as CommandIcon,
 } from 'lucide-react'
-import { Briefcase, GitBranch, Rocket } from 'lucide-react'
+import { Briefcase, GitBranch, Rocket, Database } from 'lucide-react'
 import Notebook from './components/Notebook'
 import JobsPanel from './components/JobsPanel'
 import GitPanel from './components/GitPanel'
 import DeployPanel from './components/DeployPanel'
+import DataPanel from './components/DataPanel'
 import FileExplorer from './components/FileExplorer'
 import BottomPanel from './components/BottomPanel'
 import AgentPanel from './components/AgentPanel'
@@ -43,6 +44,7 @@ function App() {
   const [jobsOpen, setJobsOpen] = useState(false)
   const [gitOpen, setGitOpen] = useState(false)
   const [deployOpen, setDeployOpen] = useState(false)
+  const [dataOpen, setDataOpen] = useState(false)
   const [railMenu, setRailMenu] = useState<null | 'settings' | 'accounts'>(null)
   const [overlay, setOverlay] = useState<null | 'command' | 'settings' | 'theme'>(null)
   const { currentNotebookId, notebooks, currentNotebook, createNotebook, addCell, executeCell } = useNotebookStore()
@@ -199,6 +201,7 @@ function App() {
     { id: 'jobs', category: 'Run', title: 'Jobs…', icon: <Briefcase size={14} />, keywords: 'schedule cron airflow', run: () => setJobsOpen(true) },
     { id: 'git', category: 'Run', title: 'Source Control…', icon: <GitBranch size={14} />, keywords: 'git github commit push pull clone', run: () => setGitOpen(true) },
     { id: 'deploy', category: 'Run', title: 'Deploy to Cloud…', icon: <Rocket size={14} />, keywords: 'docker kubernetes k8s fly deploy cloud', run: () => setDeployOpen(true) },
+    { id: 'data', category: 'Run', title: 'Data & SQL…', icon: <Database size={14} />, keywords: 'database sql query warehouse connection', run: () => setDataOpen(true) },
     { id: 'toggle-files', category: 'View', title: 'Toggle File Explorer', icon: <PanelLeft size={14} />, run: () => togglePanel('files') },
     { id: 'toggle-term', category: 'View', title: 'Toggle Terminal', icon: <PanelBottom size={14} />, run: () => togglePanel('terminal') },
     { id: 'toggle-ai', category: 'View', title: 'Toggle AI Assistant', icon: <PanelRight size={14} />, run: () => togglePanel('ai') },
@@ -248,6 +251,7 @@ function App() {
           {railBtn(searchOpen, () => setSearchOpen(true), 'Search', SearchIcon)}
           {railBtn(panels.terminal, () => togglePanel('terminal'), 'Terminal', TerminalSquare)}
           {railBtn(panels.ai, () => togglePanel('ai'), 'AI Assistant', Sparkles)}
+          {railBtn(dataOpen, () => setDataOpen((v) => !v), 'Data & SQL', Database)}
           {railBtn(gitOpen, () => setGitOpen((v) => !v), 'Source Control', GitBranch)}
           {railBtn(jobsOpen, () => setJobsOpen((v) => !v), 'Jobs', Briefcase)}
           {railBtn(deployOpen, () => setDeployOpen((v) => !v), 'Deploy to Cloud', Rocket)}
@@ -309,6 +313,7 @@ function App() {
           {jobsOpen && <JobsPanel onClose={() => setJobsOpen(false)} />}
           {gitOpen && <GitPanel onClose={() => setGitOpen(false)} />}
           {deployOpen && <DeployPanel onClose={() => setDeployOpen(false)} />}
+          {dataOpen && <DataPanel onClose={() => setDataOpen(false)} />}
           <div className="flex-1 overflow-hidden">
             {currentNotebookId ? (
               <Notebook />
