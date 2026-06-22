@@ -88,15 +88,41 @@ function App() {
     return () => window.removeEventListener('resize', onResize)
   }, [])
 
-  // global shortcuts: ⇧⌘P command palette, ⌘, settings
+  // global shortcuts: ⇧⌘P palette · ⌘K search · ⌘⇧⏎ run all · ⌘, settings
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'p') {
+      const mod = e.metaKey || e.ctrlKey
+      if (mod && e.shiftKey && e.key.toLowerCase() === 'p') {
         e.preventDefault()
         setOverlay('command')
-      } else if ((e.metaKey || e.ctrlKey) && e.key === ',') {
+      } else if (mod && !e.shiftKey && e.key.toLowerCase() === 'k') {
+        // ⌘K opens global search (Monaco intercepts it for in-cell AI when an
+        // editor is focused, so this fires only outside a cell).
+        e.preventDefault()
+        setSearchOpen(true)
+      } else if (mod && e.shiftKey && e.key === 'Enter') {
+        e.preventDefault()
+        const st: any = useNotebookStore.getState()
+        const nb = st.currentNotebook
+        if (nb) {
+          ;(async () => {
+            for (let i = 0; i < nb.cells.length; i++) {
+              if (nb.cells[i].cell_type === 'code') await st.executeCell(i)
+            }
+          })()
+        }
+      } else if (mod && e.key === ',') {
         e.preventDefault()
         setOverlay('settings')
+      } else if (mod && e.key.toLowerCase() === 'n') {
+        e.preventDefault()
+        newNotebook()
+      } else if (mod && e.key.toLowerCase() === 'o') {
+        e.preventDefault()
+        openFile()
+      } else if (mod && e.key.toLowerCase() === 's') {
+        e.preventDefault()
+        saveCurrent()
       }
     }
     window.addEventListener('keydown', onKey)
@@ -136,20 +162,23 @@ function App() {
   }
 
   const saveCurrent = async () => {
-    if (!currentNotebook) return
+    // Read fresh state — this is also called from the ⌘S key handler whose
+    // closure would otherwise capture a stale `currentNotebook`.
+    const nb = (useNotebookStore.getState() as any).currentNotebook
+    if (!nb) return
     const ipynb = {
-      cells: currentNotebook.cells.map((c: any) => ({
+      cells: nb.cells.map((c: any) => ({
         cell_type: c.cell_type,
         source: Array.isArray(c.source) ? c.source : [c.source],
         outputs: c.outputs ?? [],
         metadata: c.metadata ?? {},
         ...(c.cell_type === 'code' ? { execution_count: null } : {}),
       })),
-      metadata: currentNotebook.metadata ?? {},
+      metadata: nb.metadata ?? {},
       nbformat: 4,
       nbformat_minor: 5,
     }
-    await saveJsonAs(`${currentNotebook.name}.ipynb`, ipynb)
+    await saveJsonAs(`${nb.name}.ipynb`, ipynb)
   }
 
   const runAll = async () => {

@@ -114,7 +114,7 @@ export default function MenuBar({ theme, onToggleTheme, panels, onTogglePanel, o
     Edit: [
       { label: 'Add Code Cell', shortcut: '⌘⏎', action: () => addCell('code'), disabled: !currentNotebook },
       { label: 'Add Markdown Cell', action: () => addCell('markdown'), disabled: !currentNotebook, separatorAfter: true },
-      { label: 'Find in Notebook…', shortcut: '⌘F', action: () => onOpenSearch?.() },
+      { label: 'Search…', shortcut: '⌘K', action: () => onOpenSearch?.() },
       { label: 'Command Palette…', shortcut: '⇧⌘P', action: () => onOpenCommandPalette?.() },
     ],
     View: [

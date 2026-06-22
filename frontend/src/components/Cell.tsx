@@ -328,6 +328,7 @@ export default function Cell({ cell, cellIndex }: CellProps) {
               editorRef.current = editor
               monacoRef.current = monaco
               editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyK, openAi)
+              editor.addCommand(monaco.KeyMod.Shift | monaco.KeyCode.Enter, () => handleRun())
               registerOllamaCompletions(monaco) // ghost-text suggestions when Ollama is up
             }}
             // split *keeping* the trailing \n on each line so join('') round-trips
