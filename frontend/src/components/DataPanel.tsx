@@ -78,7 +78,7 @@ export default function DataPanel({ onClose }: { onClose: () => void }) {
   return (
     <div className="absolute inset-0 z-30 pn-app flex flex-col">
       <div className="h-10 flex items-center justify-between px-4 border-b pn-bd">
-        <span className="flex items-center gap-2 text-sm font-semibold pn-text"><Database size={16} className="text-violet-400" /> Data &amp; SQL</span>
+        <span className="flex items-center gap-2 text-sm font-semibold pn-text"><Database size={16} className="text-blue-400" /> Data &amp; SQL</span>
         <button onClick={onClose} className="p-1 rounded pn-hover pn-muted"><X size={16} /></button>
       </div>
 
@@ -92,7 +92,7 @@ export default function DataPanel({ onClose }: { onClose: () => void }) {
           <div className="flex-1 overflow-y-auto">
             {conns.length === 0 && <div className="px-3 py-2 text-[12px] pn-faint">No connections yet.</div>}
             {conns.map((c) => (
-              <div key={c.id} className={`group flex items-center gap-2 px-3 py-1.5 cursor-pointer text-[13px] ${sel?.id === c.id ? 'bg-violet-500/15 pn-text' : 'pn-muted hover:pn-text'}`} onClick={() => setSel(c)}>
+              <div key={c.id} className={`group flex items-center gap-2 px-3 py-1.5 cursor-pointer text-[13px] ${sel?.id === c.id ? 'bg-blue-500/15 pn-text' : 'pn-muted hover:pn-text'}`} onClick={() => setSel(c)}>
                 {c.kind === 'warehouse' ? <Cloud size={13} className="text-sky-400" /> : <Database size={13} className="text-emerald-400" />}
                 <span className="flex-1 truncate">{c.name}</span>
                 <span className="text-[10px] pn-faint">{c.sub}</span>
@@ -128,7 +128,7 @@ export default function DataPanel({ onClose }: { onClose: () => void }) {
           <div className="p-3 border-b pn-bd">
             <textarea value={sql} onChange={(e) => setSql(e.target.value)} rows={4} spellCheck={false}
               placeholder={sel ? `SQL for ${sel.name}…` : 'Add or select a connection first'}
-              className="w-full px-3 py-2 rounded bg-white/5 border pn-bd pn-text font-mono text-[13px] outline-none focus:border-violet-500" />
+              className="w-full px-3 py-2 rounded bg-white/5 border pn-bd pn-text font-mono text-[13px] outline-none focus:border-blue-500" />
             <div className="mt-2 flex items-center gap-2">
               <button onClick={run} disabled={!sel || running} className="flex items-center gap-1 px-3 py-1.5 rounded prism-bg text-white text-[13px] disabled:opacity-40">
                 {running ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />} Run

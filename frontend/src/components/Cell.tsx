@@ -219,7 +219,7 @@ export default function Cell({ cell, cellIndex }: CellProps) {
               )}
               <button
                 onClick={openAi}
-                className="p-1 rounded pn-hover text-violet-400"
+                className="p-1 rounded pn-hover text-blue-400"
                 title="Edit with AI (⌘K)"
               >
                 <Sparkles size={16} />
@@ -254,9 +254,9 @@ export default function Cell({ cell, cellIndex }: CellProps) {
 
       {/* AI command bar (Cmd+K) */}
       {cell.cell_type === 'code' && aiOpen && (
-        <div className="border-t pn-bd bg-violet-500/5 px-3 py-2">
+        <div className="border-t pn-bd bg-blue-500/5 px-3 py-2">
           <div className="flex items-center gap-2">
-            <Sparkles size={15} className="text-violet-400 shrink-0" />
+            <Sparkles size={15} className="text-blue-400 shrink-0" />
             <input
               ref={promptRef}
               value={aiPrompt}
@@ -290,8 +290,8 @@ export default function Cell({ cell, cellIndex }: CellProps) {
       {/* Diff preview of an AI proposal, with accept / reject */}
       {proposal != null && (
         <div className="border-t pn-bd">
-          <div className="flex items-center justify-between px-3 py-1.5 bg-violet-500/10">
-            <span className="text-xs text-violet-300">AI suggestion — review the diff</span>
+          <div className="flex items-center justify-between px-3 py-1.5 bg-blue-500/10">
+            <span className="text-xs text-blue-300">AI suggestion — review the diff</span>
             <div className="flex gap-2">
               <button onClick={acceptProposal} className="flex items-center gap-1 px-2 py-0.5 rounded text-xs bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30">
                 <Check size={13} /> Accept
@@ -369,9 +369,9 @@ export default function Cell({ cell, cellIndex }: CellProps) {
 
       {/* AI explanation panel */}
       {explanation && (
-        <div className="border-t pn-bd bg-violet-500/5 p-3 text-sm pn-text">
+        <div className="border-t pn-bd bg-blue-500/5 p-3 text-sm pn-text">
           <div className="flex items-center justify-between mb-1">
-            <span className="text-xs text-violet-300 flex items-center gap-1"><Sparkles size={12} /> Explanation</span>
+            <span className="text-xs text-blue-300 flex items-center gap-1"><Sparkles size={12} /> Explanation</span>
             <button onClick={() => setExplanation(null)} className="p-0.5 rounded pn-hover pn-faint"><X size={13} /></button>
           </div>
           <MDPreview source={explanation} style={{ backgroundColor: 'transparent', color: 'inherit', fontSize: 13 }} />
@@ -397,7 +397,7 @@ export default function Cell({ cell, cellIndex }: CellProps) {
               <button
                 onClick={runAiExplain}
                 disabled={aiBusy}
-                className="flex items-center gap-1 text-xs pn-faint hover:text-violet-400 disabled:opacity-50"
+                className="flex items-center gap-1 text-xs pn-faint hover:text-blue-400 disabled:opacity-50"
                 title="Explain this cell with AI"
               >
                 <Sparkles size={12} /> Explain

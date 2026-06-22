@@ -150,18 +150,18 @@ export default function ServerExplorer({ initialPath }: { initialPath?: string }
         <span className="w-px h-4 bg-white/10 mx-0.5" />
         <button onClick={cut} disabled={!selected.size} title="Cut" className={`${ib} disabled:opacity-30`}><Scissors size={13} /></button>
         <button onClick={copy} disabled={!selected.size} title="Copy" className={`${ib} disabled:opacity-30`}><Copy size={13} /></button>
-        <button onClick={() => paste()} disabled={!clip} title="Paste" className={`${ib} disabled:opacity-30 ${clip ? 'text-violet-400' : ''}`}><ClipboardPaste size={13} /></button>
+        <button onClick={() => paste()} disabled={!clip} title="Paste" className={`${ib} disabled:opacity-30 ${clip ? 'text-blue-400' : ''}`}><ClipboardPaste size={13} /></button>
         <button onClick={() => delPaths([...selected])} disabled={!selected.size} title="Delete" className={`${ib} disabled:opacity-30 text-rose-400`}><Trash2 size={13} /></button>
         <div className="flex-1" />
-        <button onClick={toggleHidden} title={showHidden ? 'Hide hidden' : 'Show hidden'} className={`${ib} ${showHidden ? 'text-violet-400' : ''}`}>{showHidden ? <Eye size={13} /> : <EyeOff size={13} />}</button>
+        <button onClick={toggleHidden} title={showHidden ? 'Hide hidden' : 'Show hidden'} className={`${ib} ${showHidden ? 'text-blue-400' : ''}`}>{showHidden ? <Eye size={13} /> : <EyeOff size={13} />}</button>
       </div>
       <div className="px-2 py-1 border-b pn-bd">
-        <input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Filter…" className="w-full px-2 py-1 rounded bg-white/5 border pn-bd pn-text text-[12px] outline-none focus:border-violet-500" />
+        <input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Filter…" className="w-full px-2 py-1 rounded bg-white/5 border pn-bd pn-text text-[12px] outline-none focus:border-blue-500" />
       </div>
 
       {error && <div className="px-3 py-2 text-[12px] text-rose-400">{error}</div>}
 
-      <div className={`flex-1 overflow-y-auto py-1 ${dropActive ? 'ring-2 ring-violet-500/60 ring-inset' : ''}`}>
+      <div className={`flex-1 overflow-y-auto py-1 ${dropActive ? 'ring-2 ring-blue-500/60 ring-inset' : ''}`}>
         {shown.map((e, idx) => {
           const isNb = e.name.endsWith('.ipynb')
           const Icon = e.is_dir ? Folder : isNb ? FileCode : FileText
@@ -170,8 +170,8 @@ export default function ServerExplorer({ initialPath }: { initialPath?: string }
             <div key={e.path} draggable onDragStart={(ev) => onEntryDragStart(ev, e)}
               onDragOver={(ev) => e.is_dir && ev.preventDefault()} onDrop={(ev) => e.is_dir && onFolderDrop(ev, e)}
               onClick={(ev) => onRowClick(ev, e, idx)} onDoubleClick={() => open(e)}
-              className={`group flex items-center gap-2 px-3 py-1 text-[13px] cursor-pointer ${selected.has(e.path) ? 'bg-violet-500/25' : 'hover:bg-violet-500/10'}`}>
-              <Icon size={14} className={e.is_dir ? 'text-violet-300' : isNb ? 'text-yellow-400' : 'pn-faint'} />
+              className={`group flex items-center gap-2 px-3 py-1 text-[13px] cursor-pointer ${selected.has(e.path) ? 'bg-blue-500/25' : 'hover:bg-blue-500/10'}`}>
+              <Icon size={14} className={e.is_dir ? 'text-blue-300' : isNb ? 'text-yellow-400' : 'pn-faint'} />
               <span className={`truncate flex-1 ${e.is_dir || isNb ? 'pn-text' : 'pn-muted'}`}>{e.name}</span>
               {code && <span className={`text-[11px] font-bold ${gitColor[code] || 'pn-faint'}`} title="git status">{code === '?' ? 'U' : code}</span>}
               <button onClick={(ev) => { ev.stopPropagation(); rename(e) }} title="Rename" className="opacity-0 group-hover:opacity-100 pn-faint hover:pn-text"><Pencil size={12} /></button>
@@ -180,7 +180,7 @@ export default function ServerExplorer({ initialPath }: { initialPath?: string }
           )
         })}
         {listing && shown.length === 0 && !error && <div className="px-3 py-2 text-[12px] pn-faint">{filter ? 'No matches.' : 'Empty folder.'}</div>}
-        {dropActive && <div className="px-3 py-4 text-center text-[12px] text-violet-300">Drop files to upload</div>}
+        {dropActive && <div className="px-3 py-4 text-center text-[12px] text-blue-300">Drop files to upload</div>}
       </div>
     </div>
   )

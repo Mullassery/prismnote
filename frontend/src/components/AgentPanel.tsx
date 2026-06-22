@@ -224,7 +224,7 @@ export default function AgentPanel({ onClose }: { onClose: () => void }) {
   const actionMeta = {
     add_cell: { icon: Plus, label: 'Add code cell', color: 'text-emerald-400' },
     edit_cell: { icon: Pencil, label: 'Edit cell', color: 'text-amber-400' },
-    run_cell: { icon: Play, label: 'Run cell', color: 'text-violet-400' },
+    run_cell: { icon: Play, label: 'Run cell', color: 'text-blue-400' },
   } as const
 
   return (
@@ -232,7 +232,7 @@ export default function AgentPanel({ onClose }: { onClose: () => void }) {
       {/* header */}
       <div className="h-9 flex items-center justify-between px-3 border-b pn-bd">
         <span className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider pn-text">
-          <Sparkles size={13} className="text-fuchsia-400" /> PrismNote Agent
+          <Sparkles size={13} className="text-sky-400" /> PrismNote Agent
         </span>
         <div className="flex items-center gap-2">
           <span
@@ -287,7 +287,7 @@ export default function AgentPanel({ onClose }: { onClose: () => void }) {
                     setModel(m)
                     setModelOpen(false)
                   }}
-                  className={`w-full text-left px-3 py-1.5 text-[12px] hover:bg-violet-500/20 ${
+                  className={`w-full text-left px-3 py-1.5 text-[12px] hover:bg-blue-500/20 ${
                     m === model ? 'pn-text' : 'pn-muted'
                   }`}
                 >
@@ -314,7 +314,7 @@ export default function AgentPanel({ onClose }: { onClose: () => void }) {
             <ol className="text-[12.5px] pn-muted space-y-1.5 mb-3 list-decimal pl-4">
               <li>
                 Get Ollama:{' '}
-                <a href="https://ollama.com/download" target="_blank" rel="noreferrer" className="text-violet-300 underline">
+                <a href="https://ollama.com/download" target="_blank" rel="noreferrer" className="text-blue-300 underline">
                   ollama.com/download
                 </a>{' '}
                 <span className="pn-faint">(or <code className="pn-code">brew install ollama</code>)</span>
@@ -348,8 +348,8 @@ export default function AgentPanel({ onClose }: { onClose: () => void }) {
         {messages.length === 0 && connected !== false && (
           <div className="text-[13px] pn-faint leading-relaxed">
             <p className="mb-2">
-              <span className="text-violet-300 font-medium">Plan</span> mode discusses an approach;{' '}
-              <span className="text-fuchsia-300 font-medium">Act</span> mode proposes cell edits you can run.
+              <span className="text-blue-300 font-medium">Plan</span> mode discusses an approach;{' '}
+              <span className="text-sky-300 font-medium">Act</span> mode proposes cell edits you can run.
             </p>
             <p>The agent sees your whole notebook. Ask it to load data, write a chart, or debug an error.</p>
           </div>
@@ -364,7 +364,7 @@ export default function AgentPanel({ onClose }: { onClose: () => void }) {
               <div
                 className={`text-[13px] whitespace-pre-wrap break-words rounded-lg p-2.5 ${
                   m.role === 'user'
-                    ? 'bg-violet-500/10 border border-violet-500/20 text-violet-100'
+                    ? 'bg-blue-500/10 border border-blue-500/20 text-blue-100'
                     : 'bg-white/5 border pn-bd pn-text'
                 }`}
               >
@@ -423,8 +423,8 @@ export default function AgentPanel({ onClose }: { onClose: () => void }) {
 
       {/* prompt */}
       <div className="p-2 border-t pn-bd">
-        <div className="flex items-end gap-1 pn-solid-bg border border-white/10 rounded-xl px-2 py-1 focus-within:border-violet-500/50">
-          <CircleDot size={14} className={`mb-2 shrink-0 ${mode === 'act' ? 'text-fuchsia-400' : 'text-violet-400'}`} />
+        <div className="flex items-end gap-1 pn-solid-bg border border-white/10 rounded-xl px-2 py-1 focus-within:border-blue-500/50">
+          <CircleDot size={14} className={`mb-2 shrink-0 ${mode === 'act' ? 'text-sky-400' : 'text-blue-400'}`} />
           <textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -441,7 +441,7 @@ export default function AgentPanel({ onClose }: { onClose: () => void }) {
           <button
             onClick={send}
             disabled={streaming || !input.trim()}
-            className="mb-1 text-violet-300 hover:text-violet-200 p-1 disabled:opacity-40"
+            className="mb-1 text-blue-300 hover:text-blue-200 p-1 disabled:opacity-40"
           >
             <Send size={15} />
           </button>

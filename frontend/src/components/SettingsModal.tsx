@@ -95,7 +95,7 @@ export default function SettingsModal({ onClose, theme, setTheme, panels, toggle
                 max={32}
                 value={fontSize}
                 onChange={(e) => setFontSize(parseInt(e.target.value, 10))}
-                className="w-40 accent-violet-500"
+                className="w-40 accent-blue-500"
               />
             </Row>
             <Row label="Preview">
@@ -117,7 +117,7 @@ export default function SettingsModal({ onClose, theme, setTheme, panels, toggle
                   setEndpoint(e.target.value)
                   localStorage.setItem('pn-ollama', e.target.value)
                 }}
-                className="w-52 text-[12px] px-2 py-1 rounded-lg pn-solid-bg border pn-bd pn-text outline-none focus:border-violet-500/60"
+                className="w-52 text-[12px] px-2 py-1 rounded-lg pn-solid-bg border pn-bd pn-text outline-none focus:border-blue-500/60"
               />
             </Row>
             <div className="flex items-center gap-1.5 text-[12px] pn-faint pb-1">

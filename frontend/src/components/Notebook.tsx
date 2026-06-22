@@ -25,18 +25,18 @@ export default function Notebook() {
   // Markdown cell can be inserted exactly where you want it.
   const Inserter = ({ at }: { at: number }) => (
     <div className="group relative h-2 hover:h-8 transition-all flex items-center justify-center">
-      <div className="absolute inset-x-0 top-1/2 h-px bg-violet-500/0 group-hover:bg-violet-500/40 transition-colors" />
+      <div className="absolute inset-x-0 top-1/2 h-px bg-blue-500/0 group-hover:bg-blue-500/40 transition-colors" />
       <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-1 z-10">
         <button
           onClick={() => addCell('code', at)}
-          className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] pn-solid-bg border pn-bd hover:border-violet-500 pn-muted hover:pn-text shadow-sm"
+          className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] pn-solid-bg border pn-bd hover:border-blue-500 pn-muted hover:pn-text shadow-sm"
           title="Insert code cell here"
         >
           <Code2 size={11} /> Code
         </button>
         <button
           onClick={() => addCell('markdown', at)}
-          className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] pn-solid-bg border pn-bd hover:border-violet-500 pn-muted hover:pn-text shadow-sm"
+          className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] pn-solid-bg border pn-bd hover:border-blue-500 pn-muted hover:pn-text shadow-sm"
           title="Insert markdown / text cell here"
         >
           <Type size={11} /> Markdown
@@ -85,13 +85,13 @@ export default function Notebook() {
           <div className="mt-2 flex items-center justify-center gap-2">
             <button
               onClick={() => addCell('code')}
-              className="flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed pn-bd hover:border-violet-500 pn-hover/50 pn-muted hover:pn-text transition"
+              className="flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed pn-bd hover:border-blue-500 pn-hover/50 pn-muted hover:pn-text transition"
             >
               <Plus size={16} /> Code
             </button>
             <button
               onClick={() => addCell('markdown')}
-              className="flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed pn-bd hover:border-violet-500 pn-hover/50 pn-muted hover:pn-text transition"
+              className="flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed pn-bd hover:border-blue-500 pn-hover/50 pn-muted hover:pn-text transition"
             >
               <Type size={16} /> Markdown
             </button>

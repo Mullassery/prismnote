@@ -35,7 +35,7 @@ export default function DeployPanel({ onClose }: { onClose: () => void }) {
     <div className="absolute inset-0 z-30 pn-app flex flex-col">
       <div className="h-10 flex items-center justify-between px-4 border-b pn-bd">
         <span className="flex items-center gap-2 text-sm font-semibold pn-text">
-          <Rocket size={16} className="text-violet-400" /> Deploy to Cloud
+          <Rocket size={16} className="text-blue-400" /> Deploy to Cloud
         </span>
         <button onClick={onClose} className="p-1 rounded pn-hover pn-muted"><X size={16} /></button>
       </div>
@@ -47,7 +47,7 @@ export default function DeployPanel({ onClose }: { onClose: () => void }) {
           <div className="flex items-center gap-1 px-3 py-1.5 border-b pn-bd">
             {files.map((f) => (
               <button key={f} onClick={() => setTab(f)}
-                className={`px-2.5 py-1 rounded text-[12px] ${tab === f ? 'bg-violet-500/30 text-violet-200' : 'pn-muted hover:pn-text'}`}>
+                className={`px-2.5 py-1 rounded text-[12px] ${tab === f ? 'bg-blue-500/30 text-blue-200' : 'pn-muted hover:pn-text'}`}>
                 {f}
               </button>
             ))}
@@ -56,7 +56,7 @@ export default function DeployPanel({ onClose }: { onClose: () => void }) {
             <button onClick={download} className="flex items-center gap-1 px-2 py-1 rounded bg-white/5 hover:bg-white/10 pn-text text-[12px]"><Download size={12} /> Download</button>
           </div>
           {cmdFor && (
-            <div className="px-3 py-2 text-[12px] border-b pn-bd bg-violet-500/5">
+            <div className="px-3 py-2 text-[12px] border-b pn-bd bg-blue-500/5">
               Deploy: <code className="pn-text">{cmdFor}</code>
             </div>
           )}

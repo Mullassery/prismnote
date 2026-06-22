@@ -231,7 +231,7 @@ function ThemeSettings({
         <div className="flex gap-2 flex-wrap">
           {[
             { name: 'Blue', value: '#2563EB' },
-            { name: 'Purple', value: '#7C3AED' },
+            { name: 'Purple', value: '#3B82F6' },
             { name: 'Pink', value: '#EC4899' },
             { name: 'Green', value: '#10B981' },
             { name: 'Orange', value: '#F97316' },

@@ -48,7 +48,7 @@ export default function AISidebar({ onClose }: AISidebarProps) {
     <aside className="w-80 shrink-0 bg-[#0b0d15]/70 border-l border-white/5 flex flex-col overflow-hidden">
       <div className="h-8 flex items-center justify-between px-3 border-b border-white/5">
         <span className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-gray-200">
-          <Sparkles size={13} className="text-fuchsia-400" /> AI Assistant
+          <Sparkles size={13} className="text-sky-400" /> AI Assistant
         </span>
         <button onClick={onClose} className="text-gray-400 hover:text-white p-1 rounded hover:bg-slate-800" title="Hide panel">
           <X size={14} />
@@ -61,7 +61,7 @@ export default function AISidebar({ onClose }: AISidebarProps) {
           <button
             key={a}
             onClick={() => send(a)}
-            className="flex-1 px-2 py-1.5 text-[11px] capitalize rounded-lg bg-white/5 hover:bg-violet-500/20 hover:text-white border border-white/5 text-gray-200 transition"
+            className="flex-1 px-2 py-1.5 text-[11px] capitalize rounded-lg bg-white/5 hover:bg-blue-500/20 hover:text-white border border-white/5 text-gray-200 transition"
           >
             {a}
           </button>

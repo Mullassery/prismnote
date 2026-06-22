@@ -84,7 +84,7 @@ export default function CommandPalette({ commands, onClose, placeholder = 'Type 
                 c.run()
               }}
               className={`w-full flex items-center justify-between px-4 py-2 text-left text-[13px] ${
-                i === idx ? 'bg-violet-600 text-white' : 'pn-text'
+                i === idx ? 'bg-blue-600 text-white' : 'pn-text'
               }`}
             >
               <span className="flex items-center gap-2 min-w-0">

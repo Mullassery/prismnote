@@ -8,7 +8,7 @@ interface DF {
 
 type View = 'table' | 'bar' | 'line'
 
-const PALETTE = ['#a78bfa', '#34d399', '#60a5fa', '#f472b6', '#fbbf24', '#f87171']
+const PALETTE = ['#3b82f6', '#34d399', '#60a5fa', '#f472b6', '#fbbf24', '#f87171']
 
 function isNum(v: any) {
   return typeof v === 'number' && Number.isFinite(v)
@@ -44,7 +44,7 @@ export default function DataFrameView({ df, html }: { df: DF; html?: string }) {
             onClick={() => setView(v)}
             disabled={v !== 'table' && !chartable}
             className={`flex items-center gap-1 px-2 py-0.5 rounded text-[11px] ${
-              view === v ? 'bg-violet-500/30 text-violet-200' : 'text-gray-400 hover:text-gray-200'
+              view === v ? 'bg-blue-500/30 text-blue-200' : 'text-gray-400 hover:text-gray-200'
             } disabled:opacity-30`}
           >
             <Icon size={12} /> {label}

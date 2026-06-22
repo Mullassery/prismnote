@@ -23,8 +23,7 @@ interface SearchFilters {
   connection?: boolean
 }
 
-export default function UnifiedSearch() {
-  const [open, setOpen] = useState(false)
+export default function UnifiedSearch({ onClose }: { onClose: () => void }) {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<SearchResult[]>([])
   const [selectedIndex, setSelectedIndex] = useState(0)
@@ -42,22 +41,16 @@ export default function UnifiedSearch() {
   const inputRef = useRef<HTMLInputElement>(null)
   const resultsRef = useRef<HTMLDivElement>(null)
 
-  // Keyboard shortcut: Cmd+K to open search
+  // Controlled by the parent: this overlay is mounted only while open, so just
+  // autofocus on mount and close on Escape.
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-        e.preventDefault()
-        setOpen(true)
-        setTimeout(() => inputRef.current?.focus(), 100)
-      }
-      if (e.key === 'Escape' && open) {
-        setOpen(false)
-      }
+    setTimeout(() => inputRef.current?.focus(), 50)
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
     }
-
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [open])
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
 
   // Fetch search results
   const performSearch = useCallback(async (searchQuery: string) => {
@@ -117,7 +110,7 @@ export default function UnifiedSearch() {
   const handleSelectResult = (result: SearchResult) => {
     // This would navigate to the result or perform an action
     console.log('Selected result:', result)
-    setOpen(false)
+    onClose()
     // TODO: Implement navigation based on result type
   }
 
@@ -174,14 +167,12 @@ export default function UnifiedSearch() {
     }))
   }
 
-  if (!open) return null
-
   return (
     <>
       {/* Modal backdrop */}
       <div
         className="fixed inset-0 z-40 bg-black/50 dark:bg-black/70"
-        onClick={() => setOpen(false)}
+        onClick={onClose}
       />
 
       {/* Search dialog */}

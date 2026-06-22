@@ -225,12 +225,12 @@ export default function MenuBar({ theme, onToggleTheme, panels, onTogglePanel, o
                       item.action?.()
                       setOpen(null)
                     }}
-                    className={`w-full flex items-center justify-between px-3 py-1.5 text-left rounded-md hover:bg-violet-600 hover:text-white ${
+                    className={`w-full flex items-center justify-between px-3 py-1.5 text-left rounded-md hover:bg-blue-600 hover:text-white ${
                       item.disabled ? 'opacity-40 cursor-not-allowed' : ''
                     }`}
                   >
                     <span className="flex items-center gap-2">
-                      <span className="w-3 text-violet-400">{item.checked ? '✓' : ''}</span>
+                      <span className="w-3 text-blue-400">{item.checked ? '✓' : ''}</span>
                       {item.label}
                     </span>
                     {item.shortcut && <span className="text-xs pn-faint ml-6">{item.shortcut}</span>}

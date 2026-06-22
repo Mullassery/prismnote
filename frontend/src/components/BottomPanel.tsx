@@ -152,7 +152,7 @@ export default function BottomPanel({ onClose }: BottomPanelProps) {
       style={{ height: collapsed ? 32 : height }}
     >
       {/* drag handle */}
-      {!collapsed && <div onMouseDown={onMouseDown} className="h-1 -mt-1 cursor-row-resize hover:bg-violet-500/60 transition-colors" />}
+      {!collapsed && <div onMouseDown={onMouseDown} className="h-1 -mt-1 cursor-row-resize hover:bg-blue-500/60 transition-colors" />}
 
       {/* tab bar */}
       <div className="h-8 flex items-center justify-between border-b pn-bd pr-1">
@@ -168,13 +168,13 @@ export default function BottomPanel({ onClose }: BottomPanelProps) {
                 }}
                 className={`flex items-center gap-1.5 px-3 text-[12px] border-b-2 transition-colors ${
                   tab === t.id && !collapsed
-                    ? 'border-violet-400 pn-text'
+                    ? 'border-blue-400 pn-text'
                     : 'border-transparent pn-muted hover:pn-text'
                 }`}
               >
                 <Icon size={13} />
                 {t.label}
-                {t.badge ? <span className="ml-1 px-1 rounded bg-violet-500/25 text-violet-300 text-[10px]">{t.badge}</span> : null}
+                {t.badge ? <span className="ml-1 px-1 rounded bg-blue-500/25 text-blue-300 text-[10px]">{t.badge}</span> : null}
               </button>
             )
           })}
@@ -261,7 +261,7 @@ export default function BottomPanel({ onClose }: BottomPanelProps) {
                   <tbody>
                     {variables.map((v) => (
                       <tr key={v.name} className="border-t pn-bd align-top">
-                        <td className="px-2 py-1 text-violet-300 whitespace-nowrap">{v.name}</td>
+                        <td className="px-2 py-1 text-blue-300 whitespace-nowrap">{v.name}</td>
                         <td className="px-2 py-1 pn-muted whitespace-nowrap">
                           {v.type}{v.shape ? ` ${JSON.stringify(v.shape)}` : v.len !== undefined ? ` (${v.len})` : ''}
                         </td>
@@ -279,7 +279,7 @@ export default function BottomPanel({ onClose }: BottomPanelProps) {
               {consoleHist.map((h, i) => (
                 <div key={i}>
                   {h.code && (
-                    <div className="text-violet-300">
+                    <div className="text-blue-300">
                       <span className="pn-faint">&gt;&gt;&gt;</span> {h.code}
                     </div>
                   )}
@@ -288,7 +288,7 @@ export default function BottomPanel({ onClose }: BottomPanelProps) {
                   )}
                 </div>
               ))}
-              <div className="flex items-center gap-1 text-violet-300">
+              <div className="flex items-center gap-1 text-blue-300">
                 <span className="pn-faint">&gt;&gt;&gt;</span>
                 <input
                   value={pyCode}

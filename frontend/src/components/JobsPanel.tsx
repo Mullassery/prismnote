@@ -64,7 +64,7 @@ export default function JobsPanel({ onClose, initialCreate }: { onClose: () => v
     <div className="absolute inset-0 z-30 pn-app flex flex-col">
       <div className="h-10 flex items-center justify-between px-4 border-b pn-bd">
         <span className="flex items-center gap-2 text-sm font-semibold pn-text">
-          <Briefcase size={16} className="text-violet-400" /> Jobs
+          <Briefcase size={16} className="text-blue-400" /> Jobs
         </span>
         <div className="flex items-center gap-2">
           <button
@@ -80,11 +80,11 @@ export default function JobsPanel({ onClose, initialCreate }: { onClose: () => v
       </div>
 
       {showCreate && (
-        <div className="border-b pn-bd p-3 flex flex-wrap items-end gap-3 bg-violet-500/5">
+        <div className="border-b pn-bd p-3 flex flex-wrap items-end gap-3 bg-blue-500/5">
           <label className="text-[12px] pn-muted">
             <div className="mb-1">Job name</div>
             <input value={name} onChange={(e) => setName(e.target.value)} placeholder="nightly etl"
-              className="px-2 py-1 rounded bg-white/5 border pn-bd pn-text text-[13px] outline-none focus:border-violet-500" />
+              className="px-2 py-1 rounded bg-white/5 border pn-bd pn-text text-[13px] outline-none focus:border-blue-500" />
           </label>
           <label className="text-[12px] pn-muted">
             <div className="mb-1">Schedule</div>
@@ -119,7 +119,7 @@ export default function JobsPanel({ onClose, initialCreate }: { onClose: () => v
         <div className="absolute inset-0 z-40 bg-black/50 flex items-center justify-center p-6" onClick={() => setDag(null)}>
           <div className="pn-solid-bg border pn-bd rounded-xl max-w-2xl w-full max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between px-4 py-2 border-b pn-bd">
-              <span className="text-sm pn-text flex items-center gap-2"><Workflow size={15} className="text-violet-400" /> Airflow DAG — <code className="pn-faint">{dag.filename}</code></span>
+              <span className="text-sm pn-text flex items-center gap-2"><Workflow size={15} className="text-blue-400" /> Airflow DAG — <code className="pn-faint">{dag.filename}</code></span>
               <div className="flex items-center gap-2">
                 <button onClick={() => navigator.clipboard.writeText(dag.dag)} className="flex items-center gap-1 px-2 py-1 rounded bg-white/5 hover:bg-white/10 pn-text text-[12px]"><Copy size={12} /> Copy</button>
                 <button onClick={() => setDag(null)} className="p-1 rounded pn-hover pn-muted"><X size={15} /></button>

@@ -50,7 +50,7 @@ function iconFor(name: string) {
     case 'jpeg':
     case 'svg':
     case 'gif':
-      return <FileImage size={15} className="text-fuchsia-300 shrink-0" />
+      return <FileImage size={15} className="text-sky-300 shrink-0" />
     default:
       return <File size={15} className="pn-faint shrink-0" />
   }
@@ -236,7 +236,7 @@ function MenuRow({ label, onClick, danger }: { label: string; onClick: () => voi
   return (
     <button
       onClick={onClick}
-      className={`w-full text-left px-3 py-1.5 rounded-md hover:bg-violet-600 hover:text-white ${danger ? 'text-red-400' : ''}`}
+      className={`w-full text-left px-3 py-1.5 rounded-md hover:bg-blue-600 hover:text-white ${danger ? 'text-red-400' : ''}`}
     >
       {label}
     </button>

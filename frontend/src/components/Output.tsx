@@ -20,7 +20,7 @@ function WidgetControl({ spec, onChange }: { spec: any; onChange?: (name: string
       {spec.type === 'text' && (
         <input defaultValue={spec.value ?? ''} onBlur={(e) => fire(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && fire((e.target as HTMLInputElement).value)}
-          className="px-2 py-1 rounded bg-white/5 border border-white/10 outline-none focus:border-violet-500" />
+          className="px-2 py-1 rounded bg-white/5 border border-white/10 outline-none focus:border-blue-500" />
       )}
       {spec.type === 'slider' && (
         <span className="flex items-center gap-2">

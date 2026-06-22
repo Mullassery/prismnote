@@ -250,7 +250,7 @@ function App() {
         {/* Activity rail */}
         <div className="w-12 shrink-0 pn-bar border-r pn-bd flex flex-col items-center py-1">
           {railBtn(panels.files, () => togglePanel('files'), 'Explorer', Files)}
-          {railBtn(searchOpen, () => setSearchOpen(true), 'Search', SearchIcon)}
+          {railBtn(searchOpen, () => setSearchOpen((v) => !v), 'Search', SearchIcon)}
           {railBtn(panels.terminal, () => togglePanel('terminal'), 'Terminal', TerminalSquare)}
           {railBtn(panels.ai, () => togglePanel('ai'), 'AI Assistant', Sparkles)}
           {railBtn(dataOpen, () => setDataOpen((v) => !v), 'Data & SQL', Database)}
@@ -279,7 +279,7 @@ function App() {
                   <div key={i}>
                     <button
                       onClick={() => { it.action?.(); setRailMenu(null) }}
-                      className="w-full flex items-center justify-between px-3 py-1.5 rounded-md hover:bg-violet-600 hover:text-white"
+                      className="w-full flex items-center justify-between px-3 py-1.5 rounded-md hover:bg-blue-600 hover:text-white"
                     >
                       <span>{it.label}</span>
                       {it.shortcut && <span className="text-xs pn-faint ml-6">{it.shortcut}</span>}
@@ -296,10 +296,10 @@ function App() {
                       <div className="pn-faint text-[11px]">Not signed in</div>
                     </div>
                   </div>
-                  <button onClick={() => { alert('Sign in — coming soon'); setRailMenu(null) }} className="w-full text-left px-3 py-1.5 rounded-md hover:bg-violet-600 hover:text-white">
+                  <button onClick={() => { alert('Sign in — coming soon'); setRailMenu(null) }} className="w-full text-left px-3 py-1.5 rounded-md hover:bg-blue-600 hover:text-white">
                     Sign in to sync settings…
                   </button>
-                  <button onClick={() => { alert('Manage account — coming soon'); setRailMenu(null) }} className="w-full text-left px-3 py-1.5 rounded-md hover:bg-violet-600 hover:text-white">
+                  <button onClick={() => { alert('Manage account — coming soon'); setRailMenu(null) }} className="w-full text-left px-3 py-1.5 rounded-md hover:bg-blue-600 hover:text-white">
                     Manage account
                   </button>
                 </>
@@ -359,7 +359,7 @@ function App() {
         <span className="font-medium">◆ PrismNote</span>
       </div>
 
-      {searchOpen && <UnifiedSearch />}
+      {searchOpen && <UnifiedSearch onClose={() => setSearchOpen(false)} />}
       {overlay === 'command' && (
         <CommandPalette commands={commands} onClose={() => setOverlay(null)} placeholder="Type a command…" />
       )}

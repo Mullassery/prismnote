@@ -2,42 +2,42 @@
 @config "../tailwind.config.js";
 
 /* ── PrismNote visual language ──────────────────────────────────────────
-   "Prism" = light through glass → a spectrum accent (indigo→violet→fuchsia)
+   "Prism" = light through glass → a cool blue accent (blue → sky)
    layered over a deep, slightly blue-tinted dark surface. */
 
 .prism-text {
-  background: linear-gradient(95deg, #818cf8 0%, #a78bfa 40%, #e879f9 75%, #f0abfc 100%);
+  background: linear-gradient(95deg, #60a5fa 0%, #3b82f6 45%, #38bdf8 100%);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
   color: transparent;
 }
 .prism-bg {
-  background: linear-gradient(95deg, #6366f1 0%, #8b5cf6 45%, #d946ef 100%);
+  background: linear-gradient(95deg, #2563eb 0%, #3b82f6 50%, #38bdf8 100%);
 }
 /* deeper, less glaring gradient on light surfaces */
 :root:not(.dark) .prism-bg {
-  background: linear-gradient(95deg, #5b54d6 0%, #7c3aed 50%, #b324c4 100%);
+  background: linear-gradient(95deg, #1d4ed8 0%, #2563eb 50%, #0ea5e9 100%);
 }
 :root:not(.dark) .prism-text {
-  background: linear-gradient(95deg, #5b21b6 0%, #6d28d9 40%, #a21caf 75%, #be185d 100%);
+  background: linear-gradient(95deg, #1e40af 0%, #2563eb 50%, #0369a1 100%);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
   color: transparent;
 }
-:root:not(.dark) .prism-bar { background: linear-gradient(180deg, #7c3aed 0%, #6d28d9 100%); }
+:root:not(.dark) .prism-bar { background: linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%); }
 .prism-bar {
-  background: linear-gradient(180deg, #a78bfa 0%, #818cf8 100%);
+  background: linear-gradient(180deg, #60a5fa 0%, #3b82f6 100%);
 }
 /* soft elevated app backdrop */
 .app-backdrop {
   background:
-    radial-gradient(1200px 500px at 75% -10%, rgba(139, 92, 246, 0.12), transparent 60%),
-    radial-gradient(900px 500px at 0% 110%, rgba(99, 102, 241, 0.10), transparent 55%),
-    #0a0b12;
+    radial-gradient(1200px 500px at 75% -10%, rgba(59, 130, 246, 0.12), transparent 60%),
+    radial-gradient(900px 500px at 0% 110%, rgba(56, 189, 248, 0.10), transparent 55%),
+    #0b0f17;
 }
-.glow-accent { box-shadow: 0 0 0 1px rgba(139,92,246,0.35), 0 6px 24px -8px rgba(139,92,246,0.45); }
+.glow-accent { box-shadow: 0 0 0 1px rgba(59,130,246,0.35), 0 6px 24px -8px rgba(59,130,246,0.45); }
 
 /* refined thin scrollbars */
 *::-webkit-scrollbar { width: 9px; height: 9px; }
@@ -58,30 +58,30 @@
   --pn-faint: #97a1b2;
   --pn-hover: rgba(15, 23, 42, 0.06);
   --pn-backdrop:
-    radial-gradient(1100px 480px at 78% -10%, rgba(139, 92, 246, 0.10), transparent 60%),
-    radial-gradient(900px 480px at 0% 110%, rgba(99, 102, 241, 0.08), transparent 55%),
+    radial-gradient(1100px 480px at 78% -10%, rgba(59, 130, 246, 0.10), transparent 60%),
+    radial-gradient(900px 480px at 0% 110%, rgba(56, 189, 248, 0.08), transparent 55%),
     #f4f5fb;
 }
-/* Dark palette adopted from Claude Code: warm near-black surfaces, warm
-   off-white text, a Claude-coral glow blended with the PrismNote spectrum. */
+/* Ocean Blue dark palette: deep blue-slate surfaces, cool off-white text,
+   a blue/sky glow. (No violet.) */
 .dark {
-  --pn-surface: rgba(28, 26, 23, 0.72);
-  --pn-solid: #211f1c;
-  --pn-bar: rgba(24, 22, 19, 0.96);
-  --pn-border: rgba(255, 255, 255, 0.07);
-  --pn-text: #e9e6e1;
-  --pn-muted: #a7a097;
-  --pn-faint: #6f6a61;
-  --pn-hover: rgba(255, 255, 255, 0.055);
+  --pn-surface: rgba(19, 26, 38, 0.72);
+  --pn-solid: #131a26;
+  --pn-bar: rgba(11, 15, 23, 0.96);
+  --pn-border: rgba(255, 255, 255, 0.08);
+  --pn-text: #e6edf6;
+  --pn-muted: #9aa8bd;
+  --pn-faint: #5f6e85;
+  --pn-hover: rgba(255, 255, 255, 0.06);
   --pn-backdrop:
-    radial-gradient(1200px 520px at 78% -12%, rgba(217, 119, 87, 0.12), transparent 60%),
-    radial-gradient(900px 480px at 0% 112%, rgba(139, 92, 246, 0.07), transparent 55%),
-    #1a1815;
+    radial-gradient(1200px 520px at 78% -12%, rgba(59, 130, 246, 0.14), transparent 60%),
+    radial-gradient(900px 480px at 0% 112%, rgba(56, 189, 248, 0.08), transparent 55%),
+    #0b0f17;
 }
 
-/* Claude-coral accent token (available for both themes) */
-:root { --pn-accent: #c2603d; }
-.dark { --pn-accent: #d97757; }
+/* Accent token (available for both themes) */
+:root { --pn-accent: #2563eb; }
+.dark { --pn-accent: #3b82f6; }
 
 /* Code / monospace defaults (Claude Code-style) */
 :root {
