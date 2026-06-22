@@ -32,14 +32,43 @@ mod ws;
 
 use axum::{
     extract::DefaultBodyLimit,
+    http::{header, StatusCode, Uri},
+    response::IntoResponse,
     routing::{delete, get, post, put},
     Router,
 };
+use rust_embed::RustEmbed;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tower_http::cors::CorsLayer;
-use tower_http::services::ServeDir;
 use tower_http::trace::TraceLayer;
+
+// The built frontend is embedded into the binary so a single downloaded
+// executable is fully self-contained (no ./frontend/dist on disk required).
+#[derive(RustEmbed)]
+#[folder = "../../frontend/dist"]
+struct Assets;
+
+async fn static_handler(uri: Uri) -> impl IntoResponse {
+    let path = uri.path().trim_start_matches('/');
+    let path = if path.is_empty() { "index.html" } else { path };
+    match Assets::get(path) {
+        Some(content) => (
+            [(header::CONTENT_TYPE, content.metadata.mimetype().to_string())],
+            content.data.into_owned(),
+        )
+            .into_response(),
+        // SPA fallback: serve index.html for unknown non-asset routes.
+        None => match Assets::get("index.html") {
+            Some(c) => (
+                [(header::CONTENT_TYPE, "text/html".to_string())],
+                c.data.into_owned(),
+            )
+                .into_response(),
+            None => (StatusCode::NOT_FOUND, "not found").into_response(),
+        },
+    }
+}
 use tracing_subscriber;
 
 pub struct AppState {
@@ -244,7 +273,7 @@ async fn main() -> anyhow::Result<()> {
     let app = Router::new()
         .nest("/api", api_routes)
         .nest("/ws", ws_routes)
-        .fallback_service(ServeDir::new("./frontend/dist"))
+        .fallback(static_handler)
         .layer(DefaultBodyLimit::max(50 * 1024 * 1024))
         .layer(CorsLayer::permissive())
         .layer(TraceLayer::new_for_http());
