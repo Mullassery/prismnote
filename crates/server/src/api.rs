@@ -714,6 +714,55 @@ pub async fn fs_delete(Json(req): Json<FsPathReq>) -> (StatusCode, Json<serde_js
 }
 
 #[derive(Deserialize)]
+pub struct FsMoveReq {
+    pub from: String,
+    pub to_dir: String,
+}
+#[derive(Deserialize)]
+pub struct FsUploadReq {
+    pub path: String,
+    pub content_base64: String,
+}
+
+fn dest_in(from: &str, to_dir: &str) -> std::path::PathBuf {
+    let name = std::path::Path::new(from).file_name().unwrap_or_default();
+    std::path::Path::new(to_dir).join(name)
+}
+
+pub async fn fs_move(Json(req): Json<FsMoveReq>) -> (StatusCode, Json<serde_json::Value>) {
+    let to = dest_in(&req.from, &req.to_dir);
+    let path = to.to_string_lossy().to_string();
+    fs_ok(std::fs::rename(&req.from, &to), path)
+}
+
+fn copy_recursive(src: &std::path::Path, dst: &std::path::Path) -> std::io::Result<()> {
+    if src.is_dir() {
+        std::fs::create_dir_all(dst)?;
+        for entry in std::fs::read_dir(src)? {
+            let entry = entry?;
+            copy_recursive(&entry.path(), &dst.join(entry.file_name()))?;
+        }
+        Ok(())
+    } else {
+        std::fs::copy(src, dst).map(|_| ())
+    }
+}
+
+pub async fn fs_copy(Json(req): Json<FsMoveReq>) -> (StatusCode, Json<serde_json::Value>) {
+    let to = dest_in(&req.from, &req.to_dir);
+    let path = to.to_string_lossy().to_string();
+    fs_ok(copy_recursive(std::path::Path::new(&req.from), &to), path)
+}
+
+pub async fn fs_upload(Json(req): Json<FsUploadReq>) -> (StatusCode, Json<serde_json::Value>) {
+    use base64::Engine;
+    match base64::engine::general_purpose::STANDARD.decode(req.content_base64.as_bytes()) {
+        Ok(bytes) => fs_ok(std::fs::write(&req.path, bytes), req.path.clone()),
+        Err(e) => (StatusCode::BAD_REQUEST, Json(json!({ "ok": false, "error": e.to_string() }))),
+    }
+}
+
+#[derive(Deserialize)]
 pub struct AIEditRequest {
     pub code: String,
     pub instruction: String,
