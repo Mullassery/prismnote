@@ -38,6 +38,8 @@ interface NotebookStore {
   notebooks: Notebook[]
   currentNotebookId: string | null
   currentNotebook: Notebook | null
+  selectedCellIndex: number | null
+  clipboardCell: Cell | null
   librarySuggestions: LibrarySuggestion[]
   suggestionsIntent: string
   suggestionsSummary: string
@@ -45,9 +47,14 @@ interface NotebookStore {
   createNotebook: (name: string) => void
   deleteNotebook: (id: string) => void
   setCurrentNotebook: (id: string) => void
+  setSelectedCell: (index: number | null) => void
   addCell: (type: 'code' | 'markdown', index?: number) => void
   updateCell: (index: number, updates: Partial<Cell>) => void
   deleteCell: (index: number) => void
+  moveCell: (index: number, dir: -1 | 1) => void
+  copyCell: (index: number) => void
+  cutCell: (index: number) => void
+  pasteCell: (afterIndex: number) => void
   executeCell: (index: number) => Promise<void>
   suggestLibraries: () => Promise<void>
   ignoreLibrary: (libraryName: string) => Promise<void>
@@ -60,6 +67,8 @@ export const useNotebookStore = create<NotebookStore>((set, get) => ({
   notebooks: [],
   currentNotebookId: null,
   currentNotebook: null,
+  selectedCellIndex: null,
+  clipboardCell: null,
   librarySuggestions: [],
   suggestionsIntent: '',
   suggestionsSummary: '',
@@ -159,12 +168,57 @@ export const useNotebookStore = create<NotebookStore>((set, get) => ({
   deleteCell: (index: number) => {
     set((state) => {
       if (!state.currentNotebook) return state
-
+      const cells = state.currentNotebook.cells.filter((_, i) => i !== index)
+      const sel = state.selectedCellIndex
       return {
-        currentNotebook: {
-          ...state.currentNotebook,
-          cells: state.currentNotebook.cells.filter((_, i) => i !== index),
-        },
+        currentNotebook: { ...state.currentNotebook, cells },
+        selectedCellIndex: sel == null ? null : Math.min(sel, cells.length - 1),
+      }
+    })
+  },
+
+  setSelectedCell: (index) => set({ selectedCellIndex: index }),
+
+  moveCell: (index, dir) => {
+    set((state) => {
+      if (!state.currentNotebook) return state
+      const cells = [...state.currentNotebook.cells]
+      const j = index + dir
+      if (index < 0 || index >= cells.length || j < 0 || j >= cells.length) return state
+      ;[cells[index], cells[j]] = [cells[j], cells[index]]
+      return {
+        currentNotebook: { ...state.currentNotebook, cells },
+        selectedCellIndex: j,
+      }
+    })
+  },
+
+  copyCell: (index) => {
+    const nb = get().currentNotebook
+    if (!nb || !nb.cells[index]) return
+    set({ clipboardCell: JSON.parse(JSON.stringify(nb.cells[index])) })
+  },
+
+  cutCell: (index) => {
+    get().copyCell(index)
+    get().deleteCell(index)
+  },
+
+  pasteCell: (afterIndex) => {
+    set((state) => {
+      if (!state.currentNotebook || !state.clipboardCell) return state
+      const copy = {
+        ...JSON.parse(JSON.stringify(state.clipboardCell)),
+        id: Math.random().toString(36),
+        outputs: [],
+        execution_count: null,
+      }
+      const cells = [...state.currentNotebook.cells]
+      const at = Math.max(0, Math.min(afterIndex + 1, cells.length))
+      cells.splice(at, 0, copy)
+      return {
+        currentNotebook: { ...state.currentNotebook, cells },
+        selectedCellIndex: at,
       }
     })
   },

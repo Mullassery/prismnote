@@ -5,12 +5,12 @@ import { useNotebookStore } from '../hooks/useNotebook'
 
 // Airflow-like Jobs view: save the current notebook as a runnable job, run it on
 // demand or on a schedule, and see status/history.
-export default function JobsPanel({ onClose }: { onClose: () => void }) {
+export default function JobsPanel({ onClose, initialCreate }: { onClose: () => void; initialCreate?: boolean }) {
   const { currentNotebook } = useNotebookStore()
   const [jobs, setJobs] = useState<JobSummary[]>([])
   const [loading, setLoading] = useState(false)
   const [busy, setBusy] = useState<string | null>(null)
-  const [showCreate, setShowCreate] = useState(false)
+  const [showCreate, setShowCreate] = useState(!!initialCreate && !!currentNotebook)
   const [dag, setDag] = useState<{ dag: string; filename: string } | null>(null)
 
   // create form

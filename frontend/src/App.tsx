@@ -43,6 +43,8 @@ function App() {
   const [searchOpen, setSearchOpen] = useState(false)
   const [jobsOpen, setJobsOpen] = useState(false)
   const [gitOpen, setGitOpen] = useState(false)
+  const [gitFocus, setGitFocus] = useState<'commit' | 'clone' | undefined>(undefined)
+  const [jobsCreate, setJobsCreate] = useState(false)
   const [deployOpen, setDeployOpen] = useState(false)
   const [dataOpen, setDataOpen] = useState(false)
   const [railMenu, setRailMenu] = useState<null | 'settings' | 'accounts'>(null)
@@ -239,8 +241,8 @@ function App() {
         panels={panels}
         onTogglePanel={togglePanel}
         onOpenSearch={() => setSearchOpen(true)}
-        onOpenJobs={() => setJobsOpen(true)}
-        onOpenGit={() => setGitOpen(true)}
+        onOpenJobs={(create) => { setJobsCreate(!!create); setJobsOpen(true) }}
+        onOpenGit={(focus) => { setGitFocus(focus); setGitOpen(true) }}
         onOpenCommandPalette={() => setOverlay('command')}
       />
 
@@ -310,8 +312,8 @@ function App() {
 
         {/* Center: code panel + bottom panel */}
         <div className="flex-1 flex flex-col overflow-hidden min-w-0 relative">
-          {jobsOpen && <JobsPanel onClose={() => setJobsOpen(false)} />}
-          {gitOpen && <GitPanel onClose={() => setGitOpen(false)} />}
+          {jobsOpen && <JobsPanel onClose={() => setJobsOpen(false)} initialCreate={jobsCreate} />}
+          {gitOpen && <GitPanel onClose={() => setGitOpen(false)} initialFocus={gitFocus} />}
           {deployOpen && <DeployPanel onClose={() => setDeployOpen(false)} />}
           {dataOpen && <DataPanel onClose={() => setDataOpen(false)} />}
           <div className="flex-1 overflow-hidden">

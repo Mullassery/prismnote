@@ -1,10 +1,12 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { GitBranch, X, RefreshCw, GitCommit, ArrowUp, ArrowDown, GitFork, FolderGit2 } from 'lucide-react'
 import { gitStatus, gitInit, gitClone, gitCommit, gitPush, gitPull, type GitStatus } from '../api/git'
 
 // GitHub/Git integration — multiple ways: init, clone, stage+commit, push, pull,
 // status. Operates on a directory the user points at (their notebook folder).
-export default function GitPanel({ onClose }: { onClose: () => void }) {
+export default function GitPanel({ onClose, initialFocus }: { onClose: () => void; initialFocus?: 'commit' | 'clone' }) {
+  const commitRef = useRef<HTMLInputElement>(null)
+  const cloneRef = useRef<HTMLInputElement>(null)
   const [dir, setDir] = useState('')
   const [status, setStatus] = useState<GitStatus | null>(null)
   const [message, setMessage] = useState('')
@@ -12,6 +14,14 @@ export default function GitPanel({ onClose }: { onClose: () => void }) {
   const [cloneDir, setCloneDir] = useState('')
   const [log, setLog] = useState('')
   const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    const t = setTimeout(() => {
+      if (initialFocus === 'commit') commitRef.current?.focus()
+      else if (initialFocus === 'clone') cloneRef.current?.focus()
+    }, 50)
+    return () => clearTimeout(t)
+  }, [initialFocus])
 
   const run = async (fn: () => Promise<{ ok?: boolean; output?: string } | GitStatus>) => {
     setBusy(true)
@@ -78,7 +88,7 @@ export default function GitPanel({ onClose }: { onClose: () => void }) {
         {/* Commit / push / pull */}
         <div className="rounded-lg border pn-bd p-3 space-y-2">
           <div className="text-[12px] pn-muted">Commit &amp; sync</div>
-          <input value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Commit message"
+          <input ref={commitRef} value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Commit message"
             className="w-full px-2 py-1.5 rounded bg-white/5 border pn-bd pn-text text-[13px] outline-none focus:border-violet-500" />
           <div className="flex gap-2">
             <button onClick={() => run(() => gitCommit(dir, message || 'Update from PrismNote'))} disabled={!dir || busy}
@@ -93,7 +103,7 @@ export default function GitPanel({ onClose }: { onClose: () => void }) {
         {/* Clone */}
         <div className="rounded-lg border pn-bd p-3 space-y-2">
           <div className="text-[12px] pn-muted">Clone a repository</div>
-          <input value={cloneUrl} onChange={(e) => setCloneUrl(e.target.value)} placeholder="https://github.com/user/repo.git"
+          <input ref={cloneRef} value={cloneUrl} onChange={(e) => setCloneUrl(e.target.value)} placeholder="https://github.com/user/repo.git"
             className="w-full px-2 py-1.5 rounded bg-white/5 border pn-bd pn-text text-[13px] outline-none focus:border-violet-500" />
           <input value={cloneDir} onChange={(e) => setCloneDir(e.target.value)} placeholder="destination folder (absolute path)"
             className="w-full px-2 py-1.5 rounded bg-white/5 border pn-bd pn-text text-[13px] outline-none focus:border-violet-500" />

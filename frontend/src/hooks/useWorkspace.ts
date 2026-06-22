@@ -61,6 +61,27 @@ export async function openNotebookFile(): Promise<{ name: string; data: any } | 
   }
 }
 
+/** Save arbitrary text to disk via the Save dialog (falls back to download). */
+export async function saveTextAs(suggestedName: string, text: string) {
+  if (typeof (window as any).showSaveFilePicker === 'function') {
+    try {
+      const handle = await (window as any).showSaveFilePicker({ suggestedName })
+      const w = await handle.createWritable()
+      await w.write(text)
+      await w.close()
+      return
+    } catch {
+      return
+    }
+  }
+  const blob = new Blob([text], { type: 'text/plain' })
+  const a = document.createElement('a')
+  a.href = URL.createObjectURL(blob)
+  a.download = suggestedName
+  a.click()
+  URL.revokeObjectURL(a.href)
+}
+
 /** Save arbitrary JSON to disk via the Save dialog. */
 export async function saveJsonAs(suggestedName: string, data: any) {
   const json = JSON.stringify(data, null, 2)

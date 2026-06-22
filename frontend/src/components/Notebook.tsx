@@ -6,8 +6,7 @@ import { Plus, FileCode, Code2, Type, Minus, ChevronDown } from 'lucide-react'
 import { useFontSize } from '../hooks/useFontSize'
 
 export default function Notebook() {
-  const { currentNotebook, addCell } = useNotebookStore()
-  const [selectedCellIndex, setSelectedCellIndex] = useState<number | null>(null)
+  const { currentNotebook, addCell, selectedCellIndex, setSelectedCell } = useNotebookStore()
   const [collapsed, setCollapsed] = useState(false)
   // Code editor font, live across all cells via a window event each Cell listens to.
   const { size: codeFont, inc, dec } = useFontSize('pn-code-size', 16, 9, 40)
@@ -72,7 +71,7 @@ export default function Notebook() {
           {currentNotebook.cells.map((cell, idx) => (
             <div key={cell.id}>
               <div
-                onClick={() => setSelectedCellIndex(idx)}
+                onClick={() => setSelectedCell(idx)}
                 className={`cursor-text transition rounded-lg ${
                   selectedCellIndex === idx ? 'ring-2 ring-blue-500/70' : 'ring-1 ring-transparent hover:ring-slate-700'
                 }`}
