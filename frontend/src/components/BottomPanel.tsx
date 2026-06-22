@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { TerminalSquare, BarChart3, ListChecks, ChevronDown, X, Minus, SquareTerminal, Plus } from 'lucide-react'
+import { TerminalSquare, BarChart3, ListChecks, ChevronDown, X, Minus, SquareTerminal, Plus, Variable, RefreshCw } from 'lucide-react'
 import { useNotebookStore } from '../hooks/useNotebook'
 import { useFontSize } from '../hooks/useFontSize'
 
-type Tab = 'terminal' | 'output' | 'plots' | 'console'
+type Tab = 'terminal' | 'output' | 'plots' | 'console' | 'variables'
 
 interface BottomPanelProps {
   onClose: () => void
@@ -108,6 +108,27 @@ export default function BottomPanel({ onClose }: BottomPanelProps) {
     }
   }
 
+  // ---- variable explorer (introspects the live kernel namespace) ----
+  const [variables, setVariables] = useState<any[]>([])
+  const [varsLoading, setVarsLoading] = useState(false)
+  const loadVariables = async () => {
+    setVarsLoading(true)
+    try {
+      const r = await fetch('/api/kernel/variables')
+      const d = await r.json()
+      setVariables(d.variables ?? [])
+    } catch {
+      setVariables([])
+    } finally {
+      setVarsLoading(false)
+    }
+  }
+  useEffect(() => {
+    if (tab === 'variables' && !collapsed) loadVariables()
+    // refresh when the active notebook's outputs change while the tab is open
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, collapsed, currentNotebook?.cells.map((c: any) => c.execution_count).join(',')])
+
   // ---- derive results & plots from notebook cell outputs ----
   const outputs = (currentNotebook?.cells ?? []).flatMap((cell, i) =>
     (cell.outputs ?? []).map((o: any) => ({ cell: i, o }))
@@ -119,6 +140,7 @@ export default function BottomPanel({ onClose }: BottomPanelProps) {
 
   const tabs: { id: Tab; label: string; icon: any; badge?: number }[] = [
     { id: 'output', label: 'Output', icon: ListChecks, badge: textOutputs.length || undefined },
+    { id: 'variables', label: 'Variables', icon: Variable, badge: variables.length || undefined },
     { id: 'console', label: 'Console', icon: SquareTerminal },
     { id: 'plots', label: 'Plots', icon: BarChart3, badge: imageOutputs.length || undefined },
     { id: 'terminal', label: 'Terminal', icon: TerminalSquare },
@@ -214,6 +236,41 @@ export default function BottomPanel({ onClose }: BottomPanelProps) {
                   </pre>
                 </div>
               ))}
+            </div>
+          )}
+
+          {tab === 'variables' && (
+            <div className="p-2 pn-text">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[11px] pn-faint">{variables.length} variables in the kernel</span>
+                <button onClick={loadVariables} className="flex items-center gap-1 text-[11px] pn-muted hover:pn-text">
+                  <RefreshCw size={11} className={varsLoading ? 'animate-spin' : ''} /> Refresh
+                </button>
+              </div>
+              {variables.length === 0 ? (
+                <div className="pn-faint">No variables yet — run a cell that defines one.</div>
+              ) : (
+                <table className="w-full">
+                  <thead>
+                    <tr className="text-[10px] uppercase pn-faint text-left">
+                      <th className="px-2 py-1">Name</th>
+                      <th className="px-2 py-1">Type</th>
+                      <th className="px-2 py-1">Value</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {variables.map((v) => (
+                      <tr key={v.name} className="border-t pn-bd align-top">
+                        <td className="px-2 py-1 text-violet-300 whitespace-nowrap">{v.name}</td>
+                        <td className="px-2 py-1 pn-muted whitespace-nowrap">
+                          {v.type}{v.shape ? ` ${JSON.stringify(v.shape)}` : v.len !== undefined ? ` (${v.len})` : ''}
+                        </td>
+                        <td className="px-2 py-1 pn-text break-all">{v.preview}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
             </div>
           )}
 

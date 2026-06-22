@@ -331,7 +331,7 @@ pub async fn execute_cell(
                     // DataFrame -> renders as an HTML table (chartable downstream).
                     let q = serde_json::to_string(&body).unwrap_or_else(|_| "\"\"".to_string());
                     let py = format!(
-                        "try:\n    import duckdb as _ddb\nexcept ImportError:\n    raise ImportError('%sql needs DuckDB — install it: pip install duckdb')\nimport json as _json\n_ddb.sql(_json.loads({})).df()",
+                        "try:\n    import duckdb as _ddb\nexcept ImportError:\n    raise ImportError('%sql needs DuckDB — install it: pip install duckdb')\n_ddb.sql({}).df()",
                         q
                     );
                     match k.execute(&py).await {
@@ -1185,6 +1185,85 @@ with DAG(
     (StatusCode::OK, Json(json!({ "dag": dag, "filename": format!("prismnote_{}.py", safe) })))
 }
 
+// ── Variable explorer ────────────────────────────────────────────────────────
+pub async fn kernel_variables(State(state): State<Arc<AppState>>) -> (StatusCode, Json<serde_json::Value>) {
+    let mut kernel = state.kernel.lock().await;
+    match kernel.as_mut() {
+        Some(k) => match k.inspect().await {
+            Ok(v) => (StatusCode::OK, Json(json!({ "variables": v }))),
+            Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "error": e.to_string(), "variables": [] }))),
+        },
+        None => (StatusCode::SERVICE_UNAVAILABLE, Json(json!({ "variables": [] }))),
+    }
+}
+
+// ── Real SQL execution via the kernel (OSS connectors, no bundled drivers) ────
+// We generate Python that ends in a pandas DataFrame and run it in the shared
+// kernel; the DataFrame's `application/vnd.prismnote.df+json` bundle is reshaped
+// into {columns, rows}. This keeps the core MIT and lets users bring whichever
+// permissively-licensed connector they need (pg8000/PyMySQL/duckdb/…); nothing
+// proprietary is vendored.
+async fn query_via_kernel(
+    state: &Arc<AppState>,
+    py: &str,
+) -> Result<(Vec<serde_json::Value>, Vec<serde_json::Value>), String> {
+    let mut kernel = state.kernel.lock().await;
+    let k = kernel.as_mut().ok_or_else(|| "kernel unavailable".to_string())?;
+    let outputs = match k.execute(py).await {
+        Ok((_s, o)) => o,
+        Err(e) => return Err(e.to_string()),
+    };
+    for o in &outputs {
+        if o.get("output_type").and_then(|v| v.as_str()) == Some("error") {
+            let txt = o
+                .get("text")
+                .and_then(|v| v.as_array())
+                .map(|a| a.iter().filter_map(|x| x.as_str()).collect::<String>())
+                .unwrap_or_else(|| "query failed".to_string());
+            return Err(txt);
+        }
+    }
+    for o in &outputs {
+        if let Some(df) = o.get("data").and_then(|d| d.get("application/vnd.prismnote.df+json")) {
+            let columns = df.get("columns").and_then(|v| v.as_array()).cloned().unwrap_or_default();
+            let rows = df.get("data").and_then(|v| v.as_array()).cloned().unwrap_or_default();
+            return Ok((columns, rows));
+        }
+    }
+    Err("query did not return a table".to_string())
+}
+
+fn js(s: &str) -> String {
+    serde_json::to_string(s).unwrap_or_else(|_| "\"\"".to_string())
+}
+
+fn db_query_py(conn: &crate::db::DatabaseConnection, query: &str) -> Result<String, String> {
+    let q = js(query);
+    let host = js(conn.host.as_deref().unwrap_or("localhost"));
+    let port = conn.port.unwrap_or(0);
+    let user = js(conn.username.as_deref().unwrap_or(""));
+    let pass = js(conn.password.as_deref().unwrap_or(""));
+    let db = js(&conn.database);
+    // `q`/`db`/etc are already JSON-encoded, which is a valid Python string
+    // literal — embed directly (no json.loads needed).
+    match conn.db_type.as_str() {
+        "sqlite" => Ok(format!(
+            "import sqlite3, pandas as pd\n_c=sqlite3.connect({db})\n_df=pd.read_sql_query({q}, _c)\n_c.close()\n_df"
+        )),
+        "duckdb" => Ok(format!(
+            "import duckdb\nduckdb.connect({db}).execute({q}).df()"
+        )),
+        "postgresql" => Ok(format!(
+            "import pandas as pd\ntry:\n    import pg8000.dbapi as _pg\nexcept ImportError:\n    raise ImportError('PostgreSQL needs pg8000 (BSD): pip install pg8000')\n_c=_pg.connect(host={host}, port={port} or 5432, user={user}, password={pass}, database={db})\n_df=pd.read_sql_query({q}, _c)\n_c.close()\n_df"
+        )),
+        "mysql" => Ok(format!(
+            "import pandas as pd\ntry:\n    import pymysql as _my\nexcept ImportError:\n    raise ImportError('MySQL needs PyMySQL (MIT): pip install pymysql')\n_c=_my.connect(host={host}, port={port} or 3306, user={user}, password={pass}, database={db})\n_df=pd.read_sql_query({q}, _c)\n_c.close()\n_df"
+        )),
+        "mongodb" => Err("MongoDB is not a SQL source".to_string()),
+        other => Err(format!("unsupported database type: {other}")),
+    }
+}
+
 // Database connectors
 #[derive(Serialize)]
 pub struct DatabaseList {
@@ -1255,16 +1334,25 @@ pub async fn test_database(
 }
 
 pub async fn execute_database_query(
-    Path(_id): Path<String>,
-    Json(_req): Json<crate::db::QueryRequest>,
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+    Json(req): Json<crate::db::QueryRequest>,
 ) -> (StatusCode, Json<serde_json::Value>) {
-    // TODO: Load connection from store
-    (
-        StatusCode::NOT_IMPLEMENTED,
-        Json(json!({
-            "error": "Database connectors not yet implemented. Available: PostgreSQL, MySQL, SQLite, DuckDB, MongoDB"
-        })),
-    )
+    let conn = match load_databases().into_iter().find(|d| d.id == id) {
+        Some(c) => c,
+        None => return (StatusCode::NOT_FOUND, Json(json!({ "error": "connection not found" }))),
+    };
+    let py = match db_query_py(&conn, &req.query) {
+        Ok(p) => p,
+        Err(e) => return (StatusCode::BAD_REQUEST, Json(json!({ "error": e }))),
+    };
+    match query_via_kernel(&state, &py).await {
+        Ok((columns, rows)) => (
+            StatusCode::OK,
+            Json(json!({ "columns": columns, "rows": rows, "row_count": rows.len() })),
+        ),
+        Err(e) => (StatusCode::BAD_REQUEST, Json(json!({ "error": e }))),
+    }
 }
 
 pub async fn delete_database(Path(id): Path<String>) -> StatusCode {
@@ -1518,6 +1606,72 @@ pub struct CreateCloudWarehouseConnectionRequest {
     pub account_id: Option<String>,
 }
 
+// Cloud warehouse connection persistence (mirrors databases.json).
+fn warehouses_path() -> String {
+    format!("{}/.prismnote/cloud_warehouses.json", default_dir())
+}
+fn load_warehouses() -> Vec<crate::cloud_warehouse::CloudWarehouseConnection> {
+    std::fs::read_to_string(warehouses_path())
+        .ok()
+        .and_then(|t| serde_json::from_str(&t).ok())
+        .unwrap_or_default()
+}
+fn save_warehouses(ws: &[crate::cloud_warehouse::CloudWarehouseConnection]) {
+    if let Ok(json) = serde_json::to_string_pretty(ws) {
+        let path = warehouses_path();
+        if let Some(dir) = std::path::Path::new(&path).parent() {
+            let _ = std::fs::create_dir_all(dir);
+        }
+        let _ = std::fs::write(path, json);
+    }
+}
+
+/// Generate Python that runs `query` against a cloud warehouse using its official
+/// **open-source** client (Apache-2.0 / MIT) and returns a pandas DataFrame.
+/// Drivers are optional and user-installed — none are vendored.
+fn warehouse_query_py(conn: &crate::cloud_warehouse::CloudWarehouseConnection, query: &str) -> Result<String, String> {
+    use crate::cloud_warehouse::CloudWarehouseType as T;
+    let q = js(query);
+    let host = js(conn.host.as_deref().unwrap_or(""));
+    let port = conn.port.unwrap_or(0);
+    let user = js(&conn.username);
+    let pass = js(&conn.password);
+    let db = js(&conn.database);
+    let region = js(conn.region.as_deref().unwrap_or(""));
+    let project = js(conn.project_id.as_deref().unwrap_or(""));
+    let account = js(conn.account_id.as_deref().unwrap_or(""));
+    let warehouse = js(conn.warehouse_id.as_deref().unwrap_or(""));
+    let cred = |k: &str| js(conn.credentials.get(k).map(|s| s.as_str()).unwrap_or(""));
+    Ok(match conn.warehouse_type {
+        T::Snowflake => format!(
+            "try:\n    import snowflake.connector as _sf\nexcept ImportError:\n    raise ImportError('Snowflake needs snowflake-connector-python[pandas] (Apache-2.0): pip install \"snowflake-connector-python[pandas]\"')\n_c=_sf.connect(user={user}, password={pass}, account={account}, database={db}, warehouse={warehouse})\n_cur=_c.cursor(); _cur.execute({q}); _df=_cur.fetch_pandas_all(); _cur.close(); _c.close()\n_df"
+        ),
+        T::BigQuery => format!(
+            "try:\n    from google.cloud import bigquery as _bq\nexcept ImportError:\n    raise ImportError('BigQuery needs google-cloud-bigquery (Apache-2.0): pip install google-cloud-bigquery db-dtypes')\n_bq.Client(project={project}).query({q}).to_dataframe()"
+        ),
+        T::Redshift => format!(
+            "try:\n    import redshift_connector as _rs\nexcept ImportError:\n    raise ImportError('Redshift needs redshift_connector (Apache-2.0): pip install redshift_connector')\n_c=_rs.connect(host={host}, port={port} or 5439, database={db}, user={user}, password={pass})\n_cur=_c.cursor(); _cur.execute({q}); _df=_cur.fetch_dataframe(); _cur.close(); _c.close()\n_df"
+        ),
+        T::Databricks => format!(
+            "import pandas as pd\ntry:\n    from databricks import sql as _dbx\nexcept ImportError:\n    raise ImportError('Databricks needs databricks-sql-connector (Apache-2.0): pip install databricks-sql-connector')\n_c=_dbx.connect(server_hostname={host}, http_path={http}, access_token={pass})\n_cur=_c.cursor(); _cur.execute({q}); _rows=_cur.fetchall(); _cols=[d[0] for d in _cur.description]; _cur.close(); _c.close()\npd.DataFrame(_rows, columns=_cols)",
+            http = cred("http_path")
+        ),
+        T::Athena => format!(
+            "import pandas as pd\ntry:\n    from pyathena import connect as _ath\nexcept ImportError:\n    raise ImportError('Athena needs PyAthena (MIT): pip install pyathena')\n_c=_ath(s3_staging_dir={s3}, region_name={region})\npd.read_sql({q}, _c)",
+            s3 = cred("s3_staging_dir")
+        ),
+        T::Trino => format!(
+            "import pandas as pd\ntry:\n    import trino as _trino\nexcept ImportError:\n    raise ImportError('Trino needs the trino client (Apache-2.0): pip install trino')\n_c=_trino.dbapi.connect(host={host}, port={port} or 8080, user={user}, catalog={db})\npd.read_sql({q}, _c)"
+        ),
+        T::Presto => format!(
+            "import pandas as pd\ntry:\n    import prestodb as _presto\nexcept ImportError:\n    raise ImportError('Presto needs presto-python-client (Apache-2.0): pip install presto-python-client')\n_c=_presto.dbapi.connect(host={host}, port={port} or 8080, user={user}, catalog={db})\npd.read_sql({q}, _c)"
+        ),
+        T::AzureSynapse => format!(
+            "import pandas as pd\ntry:\n    import pyodbc as _odbc\nexcept ImportError:\n    raise ImportError('Azure Synapse needs pyodbc (MIT) + an ODBC driver: pip install pyodbc')\n_c=_odbc.connect('DRIVER={{ODBC Driver 18 for SQL Server}};SERVER='+{host}+';DATABASE='+{db}+';UID='+{user}+';PWD='+{pass}+';Encrypt=yes;TrustServerCertificate=yes')\npd.read_sql({q}, _c)"
+        ),
+    })
+}
+
 pub async fn create_cloud_warehouse_connection(
     Json(req): Json<CreateCloudWarehouseConnectionRequest>,
 ) -> (StatusCode, Json<serde_json::Value>) {
@@ -1556,14 +1710,14 @@ pub async fn create_cloud_warehouse_connection(
         created_at: chrono::Local::now().to_rfc3339(),
     };
 
+    let mut ws = load_warehouses();
+    ws.push(conn.clone());
+    save_warehouses(&ws);
     (StatusCode::CREATED, Json(json!(conn)))
 }
 
 pub async fn list_cloud_warehouse_connections() -> Json<serde_json::Value> {
-    // TODO: Load from ~/.prismnote/cloud_warehouses.json
-    Json(json!({
-        "connections": serde_json::json!([])
-    }))
+    Json(json!({ "connections": load_warehouses() }))
 }
 
 pub async fn test_cloud_warehouse_connection(
@@ -1626,27 +1780,24 @@ pub async fn test_cloud_warehouse_connection(
 }
 
 pub async fn execute_cloud_warehouse_query(
-    Path(_id): Path<String>,
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
     Json(req): Json<ExecuteSQLRequest>,
 ) -> (StatusCode, Json<serde_json::Value>) {
-    let manager = crate::cloud_warehouse::CloudWarehouseManager::new();
-
-    match manager.execute_query(&_id, &req.query).await {
-        Ok(result) => (
+    let conn = match load_warehouses().into_iter().find(|c| c.id == id) {
+        Some(c) => c,
+        None => return (StatusCode::NOT_FOUND, Json(json!({ "error": "warehouse connection not found" }))),
+    };
+    let py = match warehouse_query_py(&conn, &req.query) {
+        Ok(p) => p,
+        Err(e) => return (StatusCode::BAD_REQUEST, Json(json!({ "error": e }))),
+    };
+    match query_via_kernel(&state, &py).await {
+        Ok((columns, rows)) => (
             StatusCode::OK,
-            Json(json!({
-                "columns": result.columns,
-                "rows": result.rows,
-                "row_count": result.row_count,
-                "execution_time_ms": result.execution_time_ms,
-                "estimated_bytes_scanned": result.estimated_bytes_scanned,
-                "estimated_cost_usd": result.estimated_cost_usd
-            })),
+            Json(json!({ "columns": columns, "rows": rows, "row_count": rows.len() })),
         ),
-        Err(e) => (
-            StatusCode::BAD_REQUEST,
-            Json(json!({"error": e.to_string()})),
-        ),
+        Err(e) => (StatusCode::BAD_REQUEST, Json(json!({ "error": e }))),
     }
 }
 

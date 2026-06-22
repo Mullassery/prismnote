@@ -32,17 +32,21 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# Database support
-sql = ["psycopg2-binary>=2.9", "pymysql>=1.0"]
-postgres = ["psycopg2-binary>=2.9"]
-mysql = ["pymysql>=1.0"]
+# Database support — permissively-licensed (OSS) drivers only. See CONNECTORS.md.
+sql = ["duckdb>=0.9", "pg8000>=1.30", "pymysql>=1.0"]   # MIT / BSD / MIT
+postgres = ["pg8000>=1.30"]                              # BSD (pure-Python)
+mysql = ["pymysql>=1.0"]                                 # MIT
+duckdb = ["duckdb>=0.9"]                                 # MIT
 
-# Cloud warehouses
+# Cloud warehouses — official open-source clients (Apache-2.0 / MIT)
 cloud = [
-    "snowflake-connector-python>=3.0",
-    "google-cloud-bigquery>=3.0",
-    "amazon-redshift-python-driver>=1.0",
-    "databricks-sql-connector>=1.0",
+    "snowflake-connector-python[pandas]>=3.0",  # Apache-2.0
+    "google-cloud-bigquery>=3.0",               # Apache-2.0
+    "db-dtypes>=1.0",                            # Apache-2.0 (BigQuery -> pandas)
+    "redshift_connector>=2.0",                  # Apache-2.0
+    "databricks-sql-connector>=2.0",            # Apache-2.0
+    "pyathena>=3.0",                            # MIT
+    "trino>=0.328",                            # Apache-2.0
 ]
 
 # AI features

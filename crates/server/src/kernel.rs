@@ -190,6 +190,35 @@ def _run(src):
         })
     return outputs
 
+import types as _types
+_HIDDEN = {"prism", "pd", "rich", "pprint"}
+
+def _inspect():
+    """Snapshot user-defined variables for the variable explorer."""
+    out = []
+    for name, v in list(_ns.items()):
+        if name.startswith("_") or name in _HIDDEN:
+            continue
+        if isinstance(v, (_types.ModuleType, _types.FunctionType, _types.BuiltinFunctionType, type)):
+            continue
+        info = {"name": name, "type": type(v).__name__}
+        try:
+            if type(v).__name__ == "DataFrame":
+                info["shape"] = list(v.shape)
+                info["preview"] = f"DataFrame {v.shape[0]}x{v.shape[1]}: {list(v.columns)[:8]}"
+            elif type(v).__name__ in ("ndarray",):
+                info["shape"] = list(v.shape)
+                info["preview"] = repr(v)[:120]
+            elif hasattr(v, "__len__"):
+                info["len"] = len(v)
+                info["preview"] = repr(v)[:120]
+            else:
+                info["preview"] = repr(v)[:120]
+        except Exception:
+            info["preview"] = "<unrepresentable>"
+        out.append(info)
+    return out
+
 def _main():
     for line in sys.stdin:
         line = line.strip()
@@ -198,6 +227,10 @@ def _main():
         try:
             src = json.loads(line)
         except Exception:
+            continue
+        if src == "__PRISM_INSPECT__":
+            sys.stdout.write("__PRISM_RESULT__" + json.dumps({"inspect": _inspect()}) + "\n")
+            sys.stdout.flush()
             continue
         outputs = _run(src)
         sys.stdout.write("__PRISM_RESULT__" + json.dumps({"outputs": outputs}) + "\n")
@@ -397,6 +430,31 @@ impl KernelManager {
             outputs.push(json!({"output_type": "stream", "name": "stderr", "text": stderr}));
         }
         Ok((vec![stdout], outputs))
+    }
+
+    /// Snapshot user variables (for the variable explorer). Does not run user
+    /// code or bump the execution counter.
+    pub async fn inspect(&mut self) -> Result<Value> {
+        let stdin = self.stdin.as_mut().ok_or_else(|| anyhow!("kernel not running"))?;
+        let msg = serde_json::to_string("__PRISM_INSPECT__")?;
+        stdin.write_all(msg.as_bytes()).await?;
+        stdin.write_all(b"\n").await?;
+        stdin.flush().await?;
+
+        let reader = self.stdout.as_mut().ok_or_else(|| anyhow!("kernel not running"))?;
+        let mut line = String::new();
+        loop {
+            line.clear();
+            let n = reader.read_line(&mut line).await?;
+            if n == 0 {
+                return Err(anyhow!("kernel exited unexpectedly"));
+            }
+            if let Some(rest) = line.strip_prefix(RESULT_PREFIX) {
+                let res: Value = serde_json::from_str(rest.trim_end())?;
+                return Ok(res.get("inspect").cloned().unwrap_or(Value::Array(vec![])));
+            }
+            // ignore stray stream frames
+        }
     }
 
     pub fn set_timeout(&mut self, duration: Duration) {

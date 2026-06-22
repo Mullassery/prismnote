@@ -164,6 +164,7 @@ async fn main() -> anyhow::Result<()> {
         .route("/notebooks/:id/execute", post(api::execute_cell))
         .route("/kernel/interrupt", post(api::kernel_interrupt))
         .route("/kernel/restart", post(api::kernel_restart))
+        .route("/kernel/variables", get(api::kernel_variables))
         .route("/jobs", get(api::list_jobs).post(api::create_job))
         .route("/jobs/:id", get(api::get_job).delete(api::delete_job))
         .route("/jobs/:id/run", post(api::run_job_now))
