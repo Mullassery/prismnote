@@ -5,7 +5,7 @@
 **A fast, modern, open-source data-science notebook.**
 Rust engine · React UI · local-first · AI-native.
 
-**License:** MIT · **Status:** Beta (v0.4) · **PyPI:** [`prismnote`](https://pypi.org/project/prismnote/)
+**License:** MIT · **Status:** Beta (v0.4.3) · **PyPI:** [`prismnote`](https://pypi.org/project/prismnote/)
 
 </div>
 
@@ -22,10 +22,11 @@ AI assistance, scheduled jobs, git, and generated cloud-deploy files — all on 
 - **Jupyter-compatible** — native `.ipynb` import/export.
 - **Batteries included** — kernel, SQL, charts, AI, jobs, git, deploy, search, terminal.
 
-> **Status note:** PrismNote is **beta**. The notebook, kernel, AI, jobs, git, and
-> charts are functional. Cloud-warehouse connectors are **scaffolding** (query results
-> are currently stubbed), and deployment files are **generated templates** you review
-> before shipping. See the [roadmap](#roadmap).
+> **Status note:** PrismNote is **beta**. The notebook, kernel, AI, jobs, git,
+> charts, variable explorer, and SQL (databases + warehouses) are functional. SQL runs
+> through the kernel using the OSS driver you install (see [CONNECTORS.md](CONNECTORS.md));
+> deployment files are **generated templates** you review before shipping. See the
+> [roadmap](#roadmap).
 
 ---
 
@@ -87,6 +88,16 @@ binary isn't published for your platform/version yet, use the from-source steps 
 - **Interrupt** a running cell and **restart** the kernel.
 - **Dynamic input widgets** — `prism.input / slider / select / checkbox` re-run the
   cell when changed.
+- **Variable explorer** — a Variables tab listing the kernel's variables (name, type,
+  shape, preview).
+
+### Data & SQL
+- **Connections** for SQLite, DuckDB, PostgreSQL, MySQL, and 8 cloud warehouses
+  (Snowflake, BigQuery, Redshift, Databricks, Athena, Trino, Presto, Synapse).
+- **Real query execution** through the kernel using permissively-licensed (OSS)
+  drivers you install — no vendored drivers. See [CONNECTORS.md](CONNECTORS.md).
+- Results render with the **Table / Bar / Line** switcher, and **Insert into notebook**
+  drops a reproducible `df = …` cell.
 
 ### AI assistance
 Local models via **Ollama**, or **Claude / OpenAI**.
@@ -107,12 +118,21 @@ Local models via **Ollama**, or **Claude / OpenAI**.
 - **Cloud deploy** — generates `Dockerfile`, `docker-compose.yml`, `k8s.yaml`, and
   `fly.toml` (review before deploying).
 
+### Editing & menus
+- Cell ops: **cut / copy / paste / delete / move up·down**, add code/markdown.
+- **Find & Replace** across the notebook (per-cell find via Monaco `⌘F`).
+- Run **all / selected / above / below**, **Restart & Run All**, clear outputs.
+- Dedicated **Kernel** menu (interrupt / restart / restart & clear).
+- Export as **.ipynb** or **.py**; **inline rename** (click the notebook title).
+
 ### Workspace & UX
 - VS Code-style layout; **all panels collapsible**, each with **independent font +/-**.
 - **Responsive** — side panels auto-collapse on narrow windows.
 - Global **search**, **command palette**, integrated **terminal**, a **Python console**
-  (shares the kernel), and a **file browser** that works in any browser.
-- Dark/light themes; `.ipynb` import/export.
+  (shares the kernel), and a **file explorer** (works in any browser) with new/rename/
+  delete, **upload**, **drag-and-drop**, multi-select, a filter, hidden-files toggle, and
+  **git-status decorations**.
+- **Ocean-blue** dark theme + light theme; `.ipynb` import/export.
 
 ---
 
@@ -177,7 +197,8 @@ python/          PyPI launcher package (prismnote)
 *.md             Architecture & comparison docs
 ```
 
-Comparisons: [ZEPPELIN_COMPARISON.md](ZEPPELIN_COMPARISON.md) ·
+Docs: [CONNECTORS.md](CONNECTORS.md) (data connectors & OSS licensing) ·
+[ZEPPELIN_COMPARISON.md](ZEPPELIN_COMPARISON.md) ·
 [DATABRICKS_COMPARISON.md](DATABRICKS_COMPARISON.md) ·
 [NOTEBOOK_COMPARISON_MATRIX.md](NOTEBOOK_COMPARISON_MATRIX.md)
 
@@ -185,11 +206,11 @@ Comparisons: [ZEPPELIN_COMPARISON.md](ZEPPELIN_COMPARISON.md) ·
 
 ## Roadmap
 
-- Functional cloud-warehouse query execution (currently scaffolded/stubbed).
 - Prebuilt release binaries for all platforms (so `pip install` runs out of the box).
 - Distributed compute (Spark) and a catalog/data browser.
 - Real-time collaboration (live cursors / co-editing).
 - Notebook parameters and multi-notebook job composition.
+- Reactive (dependency-aware) cell execution.
 
 ---
 
