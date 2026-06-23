@@ -135,6 +135,45 @@ Open a live DataFrame, a file, or a DuckDB query in a warehouse-style explorer:
 
 ---
 
+## How PrismNote compares
+
+PrismNote focuses on **data exploration, local AI, and a single-binary local-first
+experience**. JupyterLab, Apache Zeppelin, and PyCharm are mature, broader tools — here's
+an honest side-by-side.
+
+> ✅ built-in · ⚠️ via extension / partial / paid · ❌ not available · 🔜 on the roadmap
+
+| Feature | PrismNote | JupyterLab | Apache Zeppelin | PyCharm (Pro) |
+|---|:---:|:---:|:---:|:---:|
+| Type | Notebook (web) | Notebook (web) | Notebook (web) | Desktop IDE |
+| Engine / runtime | Rust + Python kernel | Python (Jupyter) | JVM + interpreters | JetBrains (JVM) + Python |
+| `.ipynb` format (native) | ✅ | ✅ | ⚠️ (own format) | ✅ |
+| **Built-in Data Explorer** (grid, sort/filter) | ✅ | ⚠️ | ⚠️ (basic) | ✅ (DataFrame viewer) |
+| Column profiling, `describe()` & **lineage** | ✅ | ❌ | ❌ | ⚠️ (column stats) |
+| Open-format explorer (Parquet/CSV/**Iceberg**) | ✅ (DuckDB) | ⚠️ (code) | ⚠️ (code) | ⚠️ (DB tools/CSV) |
+| No-code chart builder | ✅ (Vega-Lite) | ❌ (code) | ✅ (on SQL) | ⚠️ (viewer charts) |
+| In-process SQL (DuckDB) + magics | ✅ | ⚠️ | ✅ | ⚠️ (DB tools) |
+| AI: in-cell edit / fix / explain / agent | ✅ (Ollama/Claude/OpenAI) | ⚠️ (Jupyter AI) | ❌ | ⚠️ (AI Assistant, paid) |
+| AI inline autocomplete | ✅ | ⚠️ | ❌ | ✅ |
+| Code auto-format (Black) | ✅ | ⚠️ | ❌ | ✅ |
+| Variable explorer | ✅ | ⚠️ | ❌ | ✅ |
+| Scheduled jobs (built-in) | ✅ | ❌ (external) | ✅ (cron) | ❌ |
+| Git integration (UI) | ✅ | ⚠️ (jupyterlab-git) | ⚠️ | ✅ (excellent) |
+| Cloud deploy artifacts (Docker/k8s/Fly) | ✅ | ❌ | ❌ | ⚠️ (plugins) |
+| Real-time collaboration | 🔜 | ✅ | ⚠️ | ✅ (Code With Me) |
+| Multi-language interpreters | ⚠️ (Python/SQL/shell) | ✅ (many kernels) | ✅ (many) | ⚠️ (Python focus) |
+| Install | pip / uv / **single binary** | pip / conda | download + JVM | IDE download |
+| License | MIT | BSD-3 | Apache-2.0 | Proprietary (Pro) |
+
+**In short:** choose **JupyterLab** for its vast kernel/extension ecosystem and real-time
+collaboration, **Zeppelin** for JVM/Spark-centric multi-interpreter workloads, **PyCharm**
+for a full desktop IDE with deep refactoring and DB tools (paid Pro), and **PrismNote**
+when you want fast, no-setup **data exploration + charts + local AI** in one free,
+open-source local binary. See also [ZEPPELIN_COMPARISON.md](ZEPPELIN_COMPARISON.md) and
+[NOTEBOOK_COMPARISON_MATRIX.md](NOTEBOOK_COMPARISON_MATRIX.md).
+
+---
+
 ## Configure AI (optional)
 
 **Local — Ollama** (recommended for privacy/cost):
