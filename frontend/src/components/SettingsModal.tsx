@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { X, Palette, Type, Columns3, Bot, Check, Loader2 } from 'lucide-react'
-import { getAiConfig, setAiConfig } from '../api/ai'
+import { getAiConfig, setAiConfig, CLAUDE_MODELS, OPENAI_MODELS } from '../api/ai'
 
 interface Props {
   onClose: () => void
@@ -58,11 +58,33 @@ export default function SettingsModal({ onClose, theme, setTheme, panels, toggle
   const [ollamaUrl, setOllamaUrl] = useState(() => localStorage.getItem('pn-ollama') || 'http://localhost:11434')
   const [ollamaModel, setOllamaModel] = useState('')
   const [claudeKey, setClaudeKey] = useState('')
+  const [claudeModel, setClaudeModel] = useState('claude-sonnet-4-6')
   const [openaiKey, setOpenaiKey] = useState('')
   const [openaiModel, setOpenaiModel] = useState('gpt-4o')
   const [claudeKeySet, setClaudeKeySet] = useState(false)
   const [openaiKeySet, setOpenaiKeySet] = useState(false)
   const [aiState, setAiState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  const [ollamaStatus, setOllamaStatus] = useState<'checking' | 'up' | 'down'>('checking')
+
+  // Live-check the selected provider's connection when switching tabs / editing URL.
+  useEffect(() => {
+    if (provider !== 'ollama') return
+    let alive = true
+    setOllamaStatus('checking')
+    fetch(`${ollamaUrl}/api/tags`)
+      .then((r) => r.json())
+      .then((d) => { if (alive) setOllamaStatus((d?.models?.length ?? 0) >= 0 ? 'up' : 'down') })
+      .catch(() => { if (alive) setOllamaStatus('down') })
+    return () => { alive = false }
+  }, [provider, ollamaUrl])
+
+  // Status line shown for the active provider (Ollama = live ping; cloud = key presence).
+  const providerStatus = (): { ok: boolean | null; text: string } => {
+    if (provider === 'ollama')
+      return ollamaStatus === 'checking' ? { ok: null, text: 'Checking…' } : ollamaStatus === 'up' ? { ok: true, text: 'Connected' } : { ok: false, text: 'Not reachable — is `ollama serve` running?' }
+    if (provider === 'claude') return claudeKeySet ? { ok: true, text: 'API key saved' } : { ok: false, text: 'No API key' }
+    return openaiKeySet ? { ok: true, text: 'API key saved' } : { ok: false, text: 'No API key' }
+  }
 
   useEffect(() => {
     getAiConfig()
@@ -70,6 +92,7 @@ export default function SettingsModal({ onClose, theme, setTheme, panels, toggle
         if (c.provider) setProvider(c.provider)
         if (c.ollama_url) setOllamaUrl(c.ollama_url)
         if (c.ollama_model) setOllamaModel(c.ollama_model)
+        if (c.claude_model) setClaudeModel(c.claude_model)
         if (c.openai_model) setOpenaiModel(c.openai_model)
         setClaudeKeySet(c.claude_key_set)
         setOpenaiKeySet(c.openai_key_set)
@@ -85,6 +108,7 @@ export default function SettingsModal({ onClose, theme, setTheme, panels, toggle
         ollama_url: ollamaUrl,
         ollama_model: ollamaModel || undefined,
         claude_api_key: claudeKey || undefined,
+        claude_model: claudeModel || undefined,
         openai_api_key: openaiKey || undefined,
         openai_model: openaiModel || undefined,
       })
@@ -94,6 +118,8 @@ export default function SettingsModal({ onClose, theme, setTheme, panels, toggle
       if (openaiKey) setOpenaiKeySet(true)
       setClaudeKey(''); setOpenaiKey('')
       setAiState('saved')
+      // tell the RHS AI panel to reload the provider/model/connection
+      window.dispatchEvent(new Event('pn-ai-config'))
       setTimeout(() => setAiState('idle'), 2000)
     } catch {
       setAiState('error')
@@ -173,6 +199,15 @@ export default function SettingsModal({ onClose, theme, setTheme, panels, toggle
                 ))}
               </div>
             </Row>
+            {(() => {
+              const s = providerStatus()
+              return (
+                <div className="flex items-center gap-1.5 text-[12px] pb-1">
+                  <span className={`w-2 h-2 rounded-full ${s.ok === null ? 'bg-amber-400 animate-pulse' : s.ok ? 'bg-emerald-400' : 'bg-rose-400'}`} />
+                  <span className={s.ok === false ? 'text-rose-300' : 'pn-faint'}>{s.text}</span>
+                </div>
+              )
+            })()}
 
             {provider === 'ollama' && (
               <>
@@ -188,22 +223,32 @@ export default function SettingsModal({ onClose, theme, setTheme, panels, toggle
             )}
 
             {provider === 'claude' && (
-              <Row label="Anthropic API key" hint={claudeKeySet ? 'A key is saved — type to replace' : 'sk-ant-…'}>
-                <input type="password" value={claudeKey} onChange={(e) => setClaudeKey(e.target.value)}
-                  placeholder={claudeKeySet ? '•••••••• saved' : 'sk-ant-…'}
-                  className="w-52 text-[12px] px-2 py-1 rounded-lg pn-solid-bg border pn-bd pn-text outline-none focus:border-blue-500/60" />
-              </Row>
+              <>
+                <Row label="Model" hint="Anthropic Claude">
+                  <select value={claudeModel} onChange={(e) => setClaudeModel(e.target.value)}
+                    className="w-52 text-[12px] px-2 py-1 rounded-lg pn-solid-bg border pn-bd pn-text outline-none focus:border-blue-500/60">
+                    {CLAUDE_MODELS.map((m) => <option key={m} value={m}>{m}</option>)}
+                  </select>
+                </Row>
+                <Row label="Anthropic API key" hint={claudeKeySet ? 'A key is saved — type to replace' : 'sk-ant-…'}>
+                  <input type="password" value={claudeKey} onChange={(e) => setClaudeKey(e.target.value)}
+                    placeholder={claudeKeySet ? '•••••••• saved' : 'sk-ant-…'}
+                    className="w-52 text-[12px] px-2 py-1 rounded-lg pn-solid-bg border pn-bd pn-text outline-none focus:border-blue-500/60" />
+                </Row>
+              </>
             )}
 
             {provider === 'openai' && (
               <>
+                <Row label="Model" hint="OpenAI">
+                  <select value={openaiModel} onChange={(e) => setOpenaiModel(e.target.value)}
+                    className="w-52 text-[12px] px-2 py-1 rounded-lg pn-solid-bg border pn-bd pn-text outline-none focus:border-blue-500/60">
+                    {OPENAI_MODELS.map((m) => <option key={m} value={m}>{m}</option>)}
+                  </select>
+                </Row>
                 <Row label="OpenAI API key" hint={openaiKeySet ? 'A key is saved — type to replace' : 'sk-…'}>
                   <input type="password" value={openaiKey} onChange={(e) => setOpenaiKey(e.target.value)}
                     placeholder={openaiKeySet ? '•••••••• saved' : 'sk-…'}
-                    className="w-52 text-[12px] px-2 py-1 rounded-lg pn-solid-bg border pn-bd pn-text outline-none focus:border-blue-500/60" />
-                </Row>
-                <Row label="Model">
-                  <input value={openaiModel} onChange={(e) => setOpenaiModel(e.target.value)} placeholder="gpt-4o"
                     className="w-52 text-[12px] px-2 py-1 rounded-lg pn-solid-bg border pn-bd pn-text outline-none focus:border-blue-500/60" />
                 </Row>
               </>

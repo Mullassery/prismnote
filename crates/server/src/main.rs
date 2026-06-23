@@ -107,6 +107,7 @@ async fn main() -> anyhow::Result<()> {
             ollama_url: std::env::var("PRISMNOTE_OLLAMA_URL").ok(),
             ollama_model: std::env::var("PRISMNOTE_OLLAMA_MODEL").ok(),
             claude_api_key: std::env::var("ANTHROPIC_API_KEY").ok(),
+            claude_model: std::env::var("PRISMNOTE_CLAUDE_MODEL").ok(),
             openai_api_key: std::env::var("OPENAI_API_KEY").ok(),
             openai_model: std::env::var("PRISMNOTE_OPENAI_MODEL").ok(),
         };
@@ -207,6 +208,7 @@ async fn main() -> anyhow::Result<()> {
         .route("/fs/copy", post(api::fs_copy))
         .route("/fs/upload", post(api::fs_upload))
         .route("/ai/config", get(api::get_ai_config).post(api::set_ai_config))
+        .route("/ai/chat", post(api::ai_chat))
         .route("/databases", get(api::list_databases).post(api::create_database))
         .route("/databases/:id/test", post(api::test_database))
         .route("/databases/:id/query", post(api::execute_database_query))

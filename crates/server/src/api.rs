@@ -453,6 +453,7 @@ pub struct AIConfigDetail {
     pub provider: Option<String>,
     pub ollama_url: Option<String>,
     pub ollama_model: Option<String>,
+    pub claude_model: Option<String>,
     pub openai_model: Option<String>,
     pub claude_key_set: bool,
     pub openai_key_set: bool,
@@ -467,6 +468,7 @@ pub async fn get_ai_config(State(state): State<Arc<AppState>>) -> Json<AIConfigD
                 provider: Some(c.provider.clone()),
                 ollama_url: c.ollama_url.clone(),
                 ollama_model: c.ollama_model.clone(),
+                claude_model: c.claude_model.clone(),
                 openai_model: c.openai_model.clone(),
                 claude_key_set: c.claude_api_key.as_deref().map(|k| !k.is_empty()).unwrap_or(false),
                 openai_key_set: c.openai_api_key.as_deref().map(|k| !k.is_empty()).unwrap_or(false),
@@ -477,6 +479,7 @@ pub async fn get_ai_config(State(state): State<Arc<AppState>>) -> Json<AIConfigD
             provider: None,
             ollama_url: None,
             ollama_model: None,
+            claude_model: None,
             openai_model: None,
             claude_key_set: false,
             openai_key_set: false,
@@ -490,6 +493,7 @@ pub struct AIConfigRequest {
     pub ollama_url: Option<String>,
     pub ollama_model: Option<String>,
     pub claude_api_key: Option<String>,
+    pub claude_model: Option<String>,
     pub openai_api_key: Option<String>,
     pub openai_model: Option<String>,
 }
@@ -501,12 +505,28 @@ pub async fn set_ai_config(
     // Build the engine from the posted config, swap it in at runtime, and persist
     // it so the choice survives restarts. This is what makes the AI settings UI
     // actually take effect (previously it was a no-op).
+    // Preserve already-saved API keys when the request omits them (the settings
+    // UI only sends a key when the user types a new one), so changing provider or
+    // model never silently wipes a stored key.
+    let (prev_claude, prev_openai) = {
+        match state.ai_engine.read().await.as_ref() {
+            Some(e) => (e.config().claude_api_key.clone(), e.config().openai_api_key.clone()),
+            None => (None, None),
+        }
+    };
+    let keep = |new: Option<String>, prev: Option<String>| -> Option<String> {
+        match new {
+            Some(k) if !k.is_empty() => Some(k),
+            _ => prev,
+        }
+    };
     let config = crate::ai::AIConfig {
         provider: req.provider.clone(),
         ollama_url: req.ollama_url.clone(),
         ollama_model: req.ollama_model.clone(),
-        claude_api_key: req.claude_api_key.clone(),
-        openai_api_key: req.openai_api_key.clone(),
+        claude_api_key: keep(req.claude_api_key.clone(), prev_claude),
+        claude_model: req.claude_model.clone(),
+        openai_api_key: keep(req.openai_api_key.clone(), prev_openai),
         openai_model: req.openai_model.clone(),
     };
 
@@ -1336,6 +1356,45 @@ pub async fn kernel_variables(State(state): State<Arc<AppState>>) -> (StatusCode
             Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "error": e.to_string(), "variables": [] }))),
         },
         None => (StatusCode::SERVICE_UNAVAILABLE, Json(json!({ "variables": [] }))),
+    }
+}
+
+// ── AI chat (provider-agnostic, for the RHS agent panel) ──────────────────────
+// The local Ollama agent streams directly from the browser; for Claude/OpenAI we
+// route through the configured backend engine (non-streaming) so the same panel
+// works regardless of provider.
+#[derive(Deserialize)]
+pub struct ChatMessage {
+    pub role: String,
+    pub content: String,
+}
+#[derive(Deserialize)]
+pub struct AIChatRequest {
+    pub system: Option<String>,
+    pub messages: Vec<ChatMessage>,
+}
+
+pub async fn ai_chat(
+    State(state): State<Arc<AppState>>,
+    Json(req): Json<AIChatRequest>,
+) -> (StatusCode, Json<serde_json::Value>) {
+    let engine = match state.ai_engine.read().await.as_ref() {
+        Some(e) => e.clone(),
+        None => return (StatusCode::SERVICE_UNAVAILABLE, Json(json!({ "error": "No AI provider configured" }))),
+    };
+    // Flatten the conversation into a single prompt (call_api is single-shot).
+    let mut prompt = String::new();
+    if let Some(sys) = req.system.as_ref() {
+        prompt.push_str(sys);
+        prompt.push_str("\n\n");
+    }
+    for m in &req.messages {
+        prompt.push_str(&format!("{}: {}\n", m.role.to_uppercase(), m.content));
+    }
+    prompt.push_str("ASSISTANT:");
+    match engine.call_api(&prompt).await {
+        Ok(reply) => (StatusCode::OK, Json(json!({ "reply": reply }))),
+        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "error": e.to_string() }))),
     }
 }
 

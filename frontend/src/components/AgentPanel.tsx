@@ -19,8 +19,11 @@ import {
 } from 'lucide-react'
 import { useNotebookStore } from '../hooks/useNotebook'
 import { useFontSize } from '../hooks/useFontSize'
-import { ollamaEndpoint } from '../api/ai'
+import { ollamaEndpoint, getAiConfig, aiChat } from '../api/ai'
 import { buildEnvironmentContext } from '../hooks/useAIContext'
+
+type Provider = 'ollama' | 'claude' | 'openai'
+const PROVIDER_LABEL: Record<Provider, string> = { ollama: 'Ollama', claude: 'Claude', openai: 'OpenAI' }
 
 type Mode = 'plan' | 'act'
 type Role = 'user' | 'assistant'
@@ -87,6 +90,8 @@ export default function AgentPanel({ onClose }: { onClose: () => void }) {
   const [mode, setMode] = useState<Mode>('plan')
   const [models, setModels] = useState<string[]>([])
   const [model, setModel] = useState('')
+  const [provider, setProvider] = useState<Provider>('ollama')
+  const [cloudModel, setCloudModel] = useState('')
   const { size: fontSize, inc, dec } = useFontSize('pn-ai-font', 13)
   const [modelOpen, setModelOpen] = useState(false)
   const [connected, setConnected] = useState<boolean | null>(null)
@@ -115,9 +120,33 @@ export default function AgentPanel({ onClose }: { onClose: () => void }) {
       })
       .catch(() => setConnected(false))
   }
+  // Load the configured provider; for cloud providers "connected" = key saved.
+  // Re-runs when Settings → AI saves (it dispatches 'pn-ai-config').
+  const loadConfig = () => {
+    getAiConfig()
+      .then((c) => {
+        const p = (c.provider as Provider) || 'ollama'
+        setProvider(p)
+        if (p === 'ollama') {
+          checkOllama()
+        } else if (p === 'claude') {
+          setCloudModel(c.claude_model || 'claude-sonnet-4-6')
+          setConnected(c.claude_key_set)
+        } else if (p === 'openai') {
+          setCloudModel(c.openai_model || 'gpt-4o')
+          setConnected(c.openai_key_set)
+        }
+      })
+      .catch(() => { setProvider('ollama'); checkOllama() })
+  }
   useEffect(() => {
-    checkOllama()
+    loadConfig()
+    window.addEventListener('pn-ai-config', loadConfig)
+    return () => window.removeEventListener('pn-ai-config', loadConfig)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  const activeModel = provider === 'ollama' ? model : cloudModel
 
   const notebookContext = () => {
     const cells = currentNotebook?.cells ?? []
@@ -153,7 +182,7 @@ export default function AgentPanel({ onClose }: { onClose: () => void }) {
     )
 
   const send = async () => {
-    if (!input.trim() || streaming || !model) return
+    if (!input.trim() || streaming || !activeModel) return
     const userMsg: Message = { role: 'user', text: input }
     const history = [...messages, userMsg]
     setMessages(history)
@@ -164,16 +193,41 @@ export default function AgentPanel({ onClose }: { onClose: () => void }) {
     // Give the agent product context: workspace files, the open Data Explorer
     // dataset, and the session — not just the notebook cells.
     const env = buildEnvironmentContext()
+    const sysContent = `${sys}\n\nEnvironment:\n${env}\n\nCurrent notebook:\n${notebookContext()}`
+
+    setMessages((ms) => [...ms, { role: 'assistant', text: '' }])
+
+    // Cloud providers (Claude/OpenAI) go through the backend engine (non-streaming).
+    if (provider !== 'ollama') {
+      try {
+        const reply = await aiChat(history.map((m) => ({ role: m.role, content: m.text })), sysContent)
+        const actions = mode === 'act' ? parseActions(reply) : []
+        setMessages((ms) => {
+          const copy = [...ms]
+          copy[copy.length - 1] = { role: 'assistant', text: reply, actions: actions.length ? actions : undefined }
+          return copy
+        })
+      } catch (e: any) {
+        setMessages((ms) => {
+          const copy = [...ms]
+          copy[copy.length - 1] = { role: 'assistant', text: `⚠️ ${PROVIDER_LABEL[provider]} request failed: ${e?.response?.data?.error || e?.message || 'check your API key in Settings → AI'}` }
+          return copy
+        })
+      } finally {
+        setStreaming(false)
+      }
+      return
+    }
+
     const payload = {
       model,
       stream: true,
       messages: [
-        { role: 'system', content: `${sys}\n\nEnvironment:\n${env}\n\nCurrent notebook:\n${notebookContext()}` },
+        { role: 'system', content: sysContent },
         ...history.map((m) => ({ role: m.role, content: m.text })),
       ],
     }
 
-    setMessages((ms) => [...ms, { role: 'assistant', text: '' }])
     try {
       const res = await fetch(`${ollamaEndpoint()}/api/chat`, {
         method: 'POST',
@@ -242,9 +296,14 @@ export default function AgentPanel({ onClose }: { onClose: () => void }) {
             className={`flex items-center gap-1 text-[10px] ${
               connected === false ? 'text-red-400' : connected ? 'text-emerald-400' : 'pn-faint'
             }`}
-            title="Ollama connection"
+            title={`${PROVIDER_LABEL[provider]} connection`}
           >
-            <Plug size={11} /> {connected === false ? 'offline' : connected ? 'Ollama' : '…'}
+            <Plug size={11} />{' '}
+            {connected === false
+              ? `${PROVIDER_LABEL[provider]}: ${provider === 'ollama' ? 'offline' : 'no key'}`
+              : connected
+              ? PROVIDER_LABEL[provider]
+              : '…'}
           </span>
           <button onClick={dec} title="Decrease font size" className="pn-muted hover:pn-text p-1 rounded hover:bg-white/5"><Minus size={12} /></button>
           <span className="text-[10px] tabular-nums w-4 text-center pn-faint" title="Panel font size">{fontSize}</span>
@@ -273,6 +332,14 @@ export default function AgentPanel({ onClose }: { onClose: () => void }) {
         </div>
 
         <div className="relative flex-1 min-w-0">
+          {provider !== 'ollama' ? (
+            // Cloud model is chosen in Settings → AI; show it read-only here.
+            <div className="w-full flex items-center gap-1.5 px-2 py-1.5 rounded-lg bg-white/5 text-[12px] pn-text" title="Set in Settings → AI">
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-200">{PROVIDER_LABEL[provider]}</span>
+              <span className="truncate">{cloudModel || '—'}</span>
+            </div>
+          ) : (
+          <>
           <button
             onClick={() => setModelOpen((o) => !o)}
             className="w-full flex items-center justify-between gap-1 px-2 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-[12px] pn-text"
@@ -299,13 +366,24 @@ export default function AgentPanel({ onClose }: { onClose: () => void }) {
               ))}
             </div>
           )}
+          </>
+          )}
         </div>
       </div>
 
       {/* conversation */}
       <div className="flex-1 overflow-y-auto p-3 space-y-4 min-w-0" style={{ fontSize }}>
+        {/* Cloud provider selected but no API key → point to Settings */}
+        {provider !== 'ollama' && connected === false && (
+          <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-[12.5px] pn-muted">
+            <div className="flex items-center gap-2 text-amber-300 font-semibold mb-1.5">
+              <Plug size={15} /> {PROVIDER_LABEL[provider]} not connected
+            </div>
+            No API key saved for {PROVIDER_LABEL[provider]}. Add one in <span className="pn-text">Settings → AI Provider</span> to use {cloudModel || 'this model'}.
+          </div>
+        )}
         {/* Ollama not detected → install guidance */}
-        {connected === false && (
+        {provider === 'ollama' && connected === false && (
           <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3">
             <div className="flex items-center gap-2 text-amber-300 text-[13px] font-semibold mb-1.5">
               <Download size={15} /> Ollama not detected

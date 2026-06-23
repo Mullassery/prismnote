@@ -8,6 +8,7 @@ pub struct AIConfig {
     pub ollama_url: Option<String>,
     pub ollama_model: Option<String>,
     pub claude_api_key: Option<String>,
+    pub claude_model: Option<String>,
     pub openai_api_key: Option<String>,
     pub openai_model: Option<String>,
 }
@@ -246,8 +247,9 @@ impl AIEngine {
 
     async fn claude_request(&self, api_key: &str, message: &str) -> Result<String> {
         let client = reqwest::Client::new();
+        let model = self.config.claude_model.as_deref().unwrap_or("claude-sonnet-4-6");
         let body = json!({
-            "model": "claude-3-5-sonnet-20241022",
+            "model": model,
             "max_tokens": 1024,
             "messages": [
                 {
