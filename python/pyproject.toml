@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "prismnote"
-version = "0.4.3"
+version = "0.4.4"
 description = "A modern, open-source data science notebook with Deepnote-quality UI"
 readme = "README.md"
 requires-python = ">=3.8"

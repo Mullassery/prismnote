@@ -15,7 +15,7 @@ import platform
 import urllib.request
 from pathlib import Path
 
-__version__ = "0.4.3"
+__version__ = "0.4.4"
 
 GITHUB_REPO = "Mullassery/prismnote"
 CACHE_DIR = Path.home() / ".prismnote" / "bin"
