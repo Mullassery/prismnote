@@ -1,8 +1,9 @@
 import MDPreview from '@uiw/react-markdown-preview'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { AlertTriangle, ChevronRight } from 'lucide-react'
 import { parseTraceback } from '../lib/pyerror'
 import DataFrameView from './DataFrameView'
+import { usePlots } from '../hooks/usePlots'
 
 interface OutputProps {
   output: any
@@ -77,6 +78,14 @@ function ErrorOutput({ output }: { output: any }) {
 }
 
 export default function Output({ output, onWidget }: OutputProps) {
+  // Register figures into the plots store so the Visualization Pane gallery
+  // collects them. Deduped by content, so re-renders don't pile up.
+  useEffect(() => {
+    if (output?.data?.['image/png'] || output?.data?.['image/svg+xml']) {
+      usePlots.getState().addFromOutput(output)
+    }
+  }, [output])
+
   // Interactive input widgets (prism.input/slider/select/checkbox).
   const widget = output.data?.[WIDGET_MIME]
   if (widget) return <WidgetControl spec={widget} onChange={onWidget} />

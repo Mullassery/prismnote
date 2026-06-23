@@ -153,7 +153,7 @@ export default function FileExplorer() {
         <button onClick={() => setCollapsed((c) => !c)} className="p-0.5 rounded pn-hover" title={collapsed ? 'Expand' : 'Collapse'}>
           <ChevronDown size={13} className={collapsed ? '-rotate-90 transition-transform' : 'transition-transform'} />
         </button>
-        <span className="ml-1">Explorer</span>
+        <span className="ml-1">Files</span>
         <div className="flex-1" />
         <button onClick={dec} title="Decrease font" className="p-0.5 rounded pn-hover"><Minus size={11} /></button>
         <span className="tabular-nums text-[10px] w-4 text-center normal-case">{filesFont}</span>

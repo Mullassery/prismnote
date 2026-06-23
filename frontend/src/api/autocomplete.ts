@@ -2,7 +2,9 @@
 // Registered once globally; only produces suggestions when Ollama is reachable.
 // Throttled + cached so we don't hammer the local model on every keystroke.
 
-const OLLAMA = 'http://localhost:11434'
+import { ollamaEndpoint } from './ai'
+
+const OLLAMA = () => ollamaEndpoint() // shared with the chat agent; set in Settings → AI
 let registered = false
 let cachedModel: { name: string | null; at: number } = { name: null, at: 0 }
 let lastCall = 0
@@ -11,7 +13,7 @@ async function ollamaModel(): Promise<string | null> {
   // cache the model name for 30s to avoid a /tags round-trip per keystroke
   if (Date.now() - cachedModel.at < 30_000) return cachedModel.name
   try {
-    const r = await fetch(`${OLLAMA}/api/tags`)
+    const r = await fetch(`${OLLAMA()}/api/tags`)
     const d = r.ok ? await r.json() : null
     cachedModel = { name: d?.models?.[0]?.name ?? null, at: Date.now() }
   } catch {
@@ -43,7 +45,7 @@ export function registerOllamaCompletions(monaco: any) {
       if (!mdl) return { items: [] } // Ollama not connected → no suggestions
 
       try {
-        const res = await fetch(`${OLLAMA}/api/generate`, {
+        const res = await fetch(`${OLLAMA()}/api/generate`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

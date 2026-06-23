@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { X, Palette, Type, Columns3, Bot, Check } from 'lucide-react'
+import { X, Palette, Type, Columns3, Bot, Check, Loader2 } from 'lucide-react'
+import { getAiConfig, setAiConfig } from '../api/ai'
 
 interface Props {
   onClose: () => void
@@ -44,8 +45,60 @@ function Toggle({ on, onClick }: { on: boolean; onClick: () => void }) {
 }
 
 export default function SettingsModal({ onClose, theme, setTheme, panels, togglePanel }: Props) {
-  const [fontSize, setFontSize] = useState<number>(() => Math.max(20, parseInt(localStorage.getItem('pn-code-size') || '20', 10)))
-  const [endpoint, setEndpoint] = useState<string>(() => localStorage.getItem('pn-ollama') || 'http://localhost:11434')
+  const [fontSize, setFontSize] = useState<number>(() => {
+    // Reflect the current effective size: saved value → live CSS var → 14.
+    const saved = parseInt(localStorage.getItem('pn-code-size') || '', 10)
+    if (Number.isFinite(saved) && saved > 0) return Math.min(Math.max(saved, 10), 28)
+    const css = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--pn-code-size'), 10)
+    return Number.isFinite(css) && css > 0 ? Math.min(Math.max(css, 10), 28) : 14
+  })
+  // ── AI provider config (drives the backend engine: ⌘K edit, Fix, Explain, and
+  // — via the shared Ollama endpoint — the chat agent + inline autocomplete) ──
+  const [provider, setProvider] = useState<'ollama' | 'claude' | 'openai'>('ollama')
+  const [ollamaUrl, setOllamaUrl] = useState(() => localStorage.getItem('pn-ollama') || 'http://localhost:11434')
+  const [ollamaModel, setOllamaModel] = useState('')
+  const [claudeKey, setClaudeKey] = useState('')
+  const [openaiKey, setOpenaiKey] = useState('')
+  const [openaiModel, setOpenaiModel] = useState('gpt-4o')
+  const [claudeKeySet, setClaudeKeySet] = useState(false)
+  const [openaiKeySet, setOpenaiKeySet] = useState(false)
+  const [aiState, setAiState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+
+  useEffect(() => {
+    getAiConfig()
+      .then((c) => {
+        if (c.provider) setProvider(c.provider)
+        if (c.ollama_url) setOllamaUrl(c.ollama_url)
+        if (c.ollama_model) setOllamaModel(c.ollama_model)
+        if (c.openai_model) setOpenaiModel(c.openai_model)
+        setClaudeKeySet(c.claude_key_set)
+        setOpenaiKeySet(c.openai_key_set)
+      })
+      .catch(() => {})
+  }, [])
+
+  const saveAi = async () => {
+    setAiState('saving')
+    try {
+      await setAiConfig({
+        provider,
+        ollama_url: ollamaUrl,
+        ollama_model: ollamaModel || undefined,
+        claude_api_key: claudeKey || undefined,
+        openai_api_key: openaiKey || undefined,
+        openai_model: openaiModel || undefined,
+      })
+      // keep the shared Ollama endpoint in sync (chat agent + autocomplete read it)
+      localStorage.setItem('pn-ollama', ollamaUrl)
+      if (claudeKey) setClaudeKeySet(true)
+      if (openaiKey) setOpenaiKeySet(true)
+      setClaudeKey(''); setOpenaiKey('')
+      setAiState('saved')
+      setTimeout(() => setAiState('idle'), 2000)
+    } catch {
+      setAiState('error')
+    }
+  }
 
   useEffect(() => {
     document.documentElement.style.setProperty('--pn-code-size', `${fontSize}px`)
@@ -91,8 +144,8 @@ export default function SettingsModal({ onClose, theme, setTheme, panels, toggle
             <Row label="Code font size" hint={`${fontSize}px · terminal, output, code`}>
               <input
                 type="range"
-                min={20}
-                max={32}
+                min={10}
+                max={28}
                 value={fontSize}
                 onChange={(e) => setFontSize(parseInt(e.target.value, 10))}
                 className="w-40 accent-blue-500"
@@ -104,24 +157,68 @@ export default function SettingsModal({ onClose, theme, setTheme, panels, toggle
           </Section>
 
           <Section icon={<Columns3 size={13} />} title="Layout">
-            <Row label="File Explorer"><Toggle on={panels.files} onClick={() => togglePanel('files')} /></Row>
-            <Row label="Terminal panel"><Toggle on={panels.terminal} onClick={() => togglePanel('terminal')} /></Row>
+            <Row label="Files"><Toggle on={panels.files} onClick={() => togglePanel('files')} /></Row>
+            <Row label="Bottom Panel" hint="Output · Variables · Plots · Terminal"><Toggle on={panels.terminal} onClick={() => togglePanel('terminal')} /></Row>
             <Row label="AI Assistant"><Toggle on={panels.ai} onClick={() => togglePanel('ai')} /></Row>
           </Section>
 
-          <Section icon={<Bot size={13} />} title="AI (Ollama)">
-            <Row label="Ollama endpoint" hint="Local model server URL">
-              <input
-                value={endpoint}
-                onChange={(e) => {
-                  setEndpoint(e.target.value)
-                  localStorage.setItem('pn-ollama', e.target.value)
-                }}
-                className="w-52 text-[12px] px-2 py-1 rounded-lg pn-solid-bg border pn-bd pn-text outline-none focus:border-blue-500/60"
-              />
+          <Section icon={<Bot size={13} />} title="AI Provider">
+            <Row label="Provider" hint="Powers ⌘K edit, Fix, Explain, the chat agent & autocomplete">
+              <div className="flex rounded-lg bg-[var(--pn-hover)] p-0.5 text-[12px]">
+                {(['ollama', 'claude', 'openai'] as const).map((p) => (
+                  <button key={p} onClick={() => setProvider(p)}
+                    className={`px-3 py-1 rounded-md capitalize ${provider === p ? 'prism-bg text-white' : 'pn-muted'}`}>
+                    {p}
+                  </button>
+                ))}
+              </div>
             </Row>
-            <div className="flex items-center gap-1.5 text-[12px] pn-faint pb-1">
-              <Check size={13} className="text-emerald-400" /> Models are auto-discovered from this endpoint.
+
+            {provider === 'ollama' && (
+              <>
+                <Row label="Ollama endpoint" hint="Local model server (chat agent + autocomplete use this too)">
+                  <input value={ollamaUrl} onChange={(e) => setOllamaUrl(e.target.value)}
+                    className="w-52 text-[12px] px-2 py-1 rounded-lg pn-solid-bg border pn-bd pn-text outline-none focus:border-blue-500/60" />
+                </Row>
+                <Row label="Model" hint="blank = auto-discover">
+                  <input value={ollamaModel} onChange={(e) => setOllamaModel(e.target.value)} placeholder="qwen2.5-coder, llama3…"
+                    className="w-52 text-[12px] px-2 py-1 rounded-lg pn-solid-bg border pn-bd pn-text outline-none focus:border-blue-500/60" />
+                </Row>
+              </>
+            )}
+
+            {provider === 'claude' && (
+              <Row label="Anthropic API key" hint={claudeKeySet ? 'A key is saved — type to replace' : 'sk-ant-…'}>
+                <input type="password" value={claudeKey} onChange={(e) => setClaudeKey(e.target.value)}
+                  placeholder={claudeKeySet ? '•••••••• saved' : 'sk-ant-…'}
+                  className="w-52 text-[12px] px-2 py-1 rounded-lg pn-solid-bg border pn-bd pn-text outline-none focus:border-blue-500/60" />
+              </Row>
+            )}
+
+            {provider === 'openai' && (
+              <>
+                <Row label="OpenAI API key" hint={openaiKeySet ? 'A key is saved — type to replace' : 'sk-…'}>
+                  <input type="password" value={openaiKey} onChange={(e) => setOpenaiKey(e.target.value)}
+                    placeholder={openaiKeySet ? '•••••••• saved' : 'sk-…'}
+                    className="w-52 text-[12px] px-2 py-1 rounded-lg pn-solid-bg border pn-bd pn-text outline-none focus:border-blue-500/60" />
+                </Row>
+                <Row label="Model">
+                  <input value={openaiModel} onChange={(e) => setOpenaiModel(e.target.value)} placeholder="gpt-4o"
+                    className="w-52 text-[12px] px-2 py-1 rounded-lg pn-solid-bg border pn-bd pn-text outline-none focus:border-blue-500/60" />
+                </Row>
+              </>
+            )}
+
+            <div className="flex items-center justify-between pt-2">
+              <span className="text-[12px] pn-faint flex items-center gap-1.5">
+                {aiState === 'saved' && <><Check size={13} className="text-emerald-400" /> Saved</>}
+                {aiState === 'error' && <span className="text-rose-400">Couldn’t save</span>}
+                {provider !== 'ollama' && <span>Keys are stored locally in ~/.prismnote/ai_config.json</span>}
+              </span>
+              <button onClick={saveAi} disabled={aiState === 'saving'}
+                className="px-3 py-1.5 rounded-lg prism-bg text-white text-[12px] disabled:opacity-50 flex items-center gap-1.5">
+                {aiState === 'saving' && <Loader2 size={13} className="animate-spin" />} Save AI settings
+              </button>
             </div>
           </Section>
         </div>

@@ -1,12 +1,10 @@
-import { Download, Upload, Save, Moon, Sun, Sparkles, RotateCcw } from 'lucide-react'
+import { Download, Upload, Save, Moon, Sun, RotateCcw } from 'lucide-react'
 import { useNotebookStore } from '../hooks/useNotebook'
-import AISettings from './AISettings'
 import { restartKernel } from '../api/kernel'
 import { useState } from 'react'
 
 export default function Toolbar() {
   const [isDark, setIsDark] = useState(true)
-  const [showAISettings, setShowAISettings] = useState(false)
   const [editingName, setEditingName] = useState(false)
   const { currentNotebook, saveNotebook } = useNotebookStore()
 
@@ -98,22 +96,12 @@ export default function Toolbar() {
         <div className="h-6 w-px bg-slate-700"></div>
 
         <button
-          onClick={() => setShowAISettings(true)}
-          className="p-2 hover:bg-slate-700 rounded transition text-gray-400 hover:text-white"
-          title="AI Settings"
-        >
-          <Sparkles size={18} />
-        </button>
-
-        <button
           onClick={() => setIsDark(!isDark)}
           className="p-2 hover:bg-slate-700 rounded transition text-gray-400 hover:text-white"
         >
           {isDark ? <Sun size={18} /> : <Moon size={18} />}
         </button>
       </div>
-
-      <AISettings isOpen={showAISettings} onClose={() => setShowAISettings(false)} />
     </div>
   )
 }

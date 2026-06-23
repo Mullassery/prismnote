@@ -21,8 +21,11 @@ import {
   PanelBottom,
   Command as CommandIcon,
 } from 'lucide-react'
-import { Briefcase, GitBranch, Rocket, Database } from 'lucide-react'
+import { Briefcase, GitBranch, Rocket, Database, Table2 } from 'lucide-react'
 import Notebook from './components/Notebook'
+import DataExplorer, { ExplorerPicker, type ExplorerTarget } from './components/DataExplorer'
+import { useViz } from './hooks/useViz'
+import { useExplorerRequest } from './hooks/useExplorerRequest'
 import JobsPanel from './components/JobsPanel'
 import GitPanel from './components/GitPanel'
 import DeployPanel from './components/DeployPanel'
@@ -47,6 +50,8 @@ function App() {
   const [jobsCreate, setJobsCreate] = useState(false)
   const [deployOpen, setDeployOpen] = useState(false)
   const [dataOpen, setDataOpen] = useState(false)
+  const [explorer, setExplorer] = useState<{ target: ExplorerTarget; title: string } | null>(null)
+  const [explorerPicker, setExplorerPicker] = useState(false)
   const [railMenu, setRailMenu] = useState<null | 'settings' | 'accounts'>(null)
   const [overlay, setOverlay] = useState<null | 'command' | 'settings' | 'theme'>(null)
   const { currentNotebookId, notebooks, currentNotebook, createNotebook, addCell, executeCell } = useNotebookStore()
@@ -118,6 +123,11 @@ function App() {
       } else if (mod && e.key === ',') {
         e.preventDefault()
         setOverlay('settings')
+      } else if (mod && e.key.toLowerCase() === 'e') {
+        // ⌘E — Data Explorer (the headline feature)
+        e.preventDefault()
+        closeCenterOverlays()
+        setExplorerPicker(true)
       } else if (mod && e.key.toLowerCase() === 'n') {
         e.preventDefault()
         newNotebook()
@@ -141,6 +151,48 @@ function App() {
   const toggleTheme = () => applyTheme(theme === 'light' ? 'dark' : 'light')
 
   const togglePanel = (p: 'files' | 'terminal' | 'ai') => setPanels((s) => ({ ...s, [p]: !s[p] }))
+
+  // The center column hosts several full-bleed overlays (Data Explorer, Data &
+  // SQL, Jobs, Git, Deploy). They are mutually exclusive — opening one closes
+  // the others so they never stack and "trap" a hidden panel underneath.
+  const closeCenterOverlays = () => {
+    setDataOpen(false); setJobsOpen(false); setGitOpen(false); setDeployOpen(false)
+    setExplorer(null); setExplorerPicker(false)
+  }
+  /** Toggle a boolean center overlay, closing any other that's open. */
+  const toggleCenter = (isOpen: boolean, open: () => void) => {
+    closeCenterOverlays()
+    if (!isOpen) open()
+  }
+
+  // Data Explorer — the product's #1 surface. Opening with no target shows the
+  // dataset chooser; otherwise it jumps straight into the grid.
+  const openExplorer = () => {
+    if (explorer || explorerPicker) { setExplorer(null); setExplorerPicker(false); return }
+    closeCenterOverlays()
+    setExplorerPicker(true)
+  }
+  const showExplorer = (target: ExplorerTarget, title: string) => {
+    closeCenterOverlays()
+    setExplorer({ target, title })
+  }
+  // From the explorer's "Visualize" button: drive the Visualization Pane's
+  // Explore mode and make sure the bottom panel (which hosts it) is visible.
+  const openVizFor = (target: ExplorerTarget, title: string) => {
+    useViz.getState().requestExplore(target, title)
+    setPanels((s) => ({ ...s, terminal: true }))
+  }
+
+  // Any panel can ask to open the Data Explorer (e.g. double-clicking a Parquet
+  // file in the server file browser) — keeps the product feeling like one flow.
+  const explorerReqNonce = useExplorerRequest((s) => s.nonce)
+  useEffect(() => {
+    if (explorerReqNonce > 0) {
+      const { target, title } = useExplorerRequest.getState()
+      if (target) { closeCenterOverlays(); setExplorer({ target, title }) }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [explorerReqNonce])
 
   // Create instantly with a unique default name (rename later). Avoids
   // window.prompt, which is silently suppressed in embedded browsers, PWAs,
@@ -200,16 +252,17 @@ function App() {
 
   // ── Command Palette command set ──
   const commands: Command[] = [
+    { id: 'data-explorer', category: 'Explore', title: 'Open Data Explorer', shortcut: '⌘E', icon: <Table2 size={14} />, keywords: 'dataframe table grid columns schema statistics parquet csv iceberg duckdb', run: () => { closeCenterOverlays(); setExplorerPicker(true) } },
     { id: 'new-nb', category: 'File', title: 'New Notebook', shortcut: '⌘N', icon: <Plus size={14} />, run: newNotebook },
     { id: 'open-folder', category: 'File', title: 'Open Folder…', icon: <FolderOpen size={14} />, run: openFolder },
     { id: 'open-file', category: 'File', title: 'Open File…', shortcut: '⌘O', icon: <FileUp size={14} />, keywords: 'notebook ipynb', run: openFile },
     { id: 'save', category: 'File', title: 'Save Notebook', shortcut: '⌘S', icon: <Save size={14} />, run: saveCurrent },
     { id: 'add-cell', category: 'Edit', title: 'Add Code Cell', icon: <Plus size={14} />, run: () => addCell('code') },
     { id: 'run-all', category: 'Run', title: 'Run All Cells', shortcut: '⌘⇧⏎', icon: <Play size={14} />, run: runAll },
-    { id: 'jobs', category: 'Run', title: 'Jobs…', icon: <Briefcase size={14} />, keywords: 'schedule cron airflow', run: () => setJobsOpen(true) },
-    { id: 'git', category: 'Run', title: 'Source Control…', icon: <GitBranch size={14} />, keywords: 'git github commit push pull clone', run: () => setGitOpen(true) },
-    { id: 'deploy', category: 'Run', title: 'Deploy to Cloud…', icon: <Rocket size={14} />, keywords: 'docker kubernetes k8s fly deploy cloud', run: () => setDeployOpen(true) },
-    { id: 'data', category: 'Run', title: 'Data & SQL…', icon: <Database size={14} />, keywords: 'database sql query warehouse connection', run: () => setDataOpen(true) },
+    { id: 'jobs', category: 'Run', title: 'Jobs…', icon: <Briefcase size={14} />, keywords: 'schedule cron airflow', run: () => { closeCenterOverlays(); setJobsOpen(true) } },
+    { id: 'git', category: 'Run', title: 'Source Control…', icon: <GitBranch size={14} />, keywords: 'git github commit push pull clone', run: () => { closeCenterOverlays(); setGitOpen(true) } },
+    { id: 'deploy', category: 'Run', title: 'Deploy to Cloud…', icon: <Rocket size={14} />, keywords: 'docker kubernetes k8s fly deploy cloud', run: () => { closeCenterOverlays(); setDeployOpen(true) } },
+    { id: 'data', category: 'Run', title: 'Data & SQL…', icon: <Database size={14} />, keywords: 'database sql query warehouse connection', run: () => { closeCenterOverlays(); setDataOpen(true) } },
     { id: 'toggle-files', category: 'View', title: 'Toggle File Explorer', icon: <PanelLeft size={14} />, run: () => togglePanel('files') },
     { id: 'toggle-term', category: 'View', title: 'Toggle Terminal', icon: <PanelBottom size={14} />, run: () => togglePanel('terminal') },
     { id: 'toggle-ai', category: 'View', title: 'Toggle AI Assistant', icon: <PanelRight size={14} />, run: () => togglePanel('ai') },
@@ -247,25 +300,33 @@ function App() {
         panels={panels}
         onTogglePanel={togglePanel}
         onOpenSearch={() => setSearchOpen(true)}
-        onOpenJobs={(create) => { setJobsCreate(!!create); setJobsOpen(true) }}
-        onOpenGit={(focus) => { setGitFocus(focus); setGitOpen(true) }}
+        onOpenJobs={(create) => { closeCenterOverlays(); setJobsCreate(!!create); setJobsOpen(true) }}
+        onOpenGit={(focus) => { closeCenterOverlays(); setGitFocus(focus); setGitOpen(true) }}
         onOpenCommandPalette={() => setOverlay('command')}
+        onOpenDataExplorer={() => { closeCenterOverlays(); setExplorerPicker(true) }}
+        onOpenData={() => { closeCenterOverlays(); setDataOpen(true) }}
       />
 
       <div className="flex-1 flex overflow-hidden">
         {/* Activity rail */}
         <div className="w-12 shrink-0 pn-bar border-r pn-bd flex flex-col items-center py-1">
-          {railBtn(panels.files, () => togglePanel('files'), 'Explorer', Files)}
-          {railBtn(searchOpen, () => setSearchOpen((v) => !v), 'Search', SearchIcon)}
-          {railBtn(panels.terminal, () => togglePanel('terminal'), 'Terminal', TerminalSquare)}
+          {/* Data surfaces — the product's focus */}
+          {railBtn(!!explorer || explorerPicker, openExplorer, 'Data Explorer  ⌘E', Table2)}
+          {railBtn(dataOpen, () => toggleCenter(dataOpen, () => setDataOpen(true)), 'Data & SQL', Database)}
+          <div className="w-7 my-1 border-t pn-bd" />
+          {/* Workspace */}
+          {railBtn(panels.files, () => togglePanel('files'), 'Files', Files)}
+          {railBtn(searchOpen, () => setSearchOpen((v) => !v), 'Search  ⌘K', SearchIcon)}
+          {railBtn(panels.terminal, () => togglePanel('terminal'), 'Bottom Panel — Output · Variables · Plots · Terminal', TerminalSquare)}
           {railBtn(panels.ai, () => togglePanel('ai'), 'AI Assistant', Sparkles)}
-          {railBtn(dataOpen, () => setDataOpen((v) => !v), 'Data & SQL', Database)}
-          {railBtn(gitOpen, () => setGitOpen((v) => !v), 'Source Control', GitBranch)}
-          {railBtn(jobsOpen, () => setJobsOpen((v) => !v), 'Jobs', Briefcase)}
-          {railBtn(deployOpen, () => setDeployOpen((v) => !v), 'Deploy to Cloud', Rocket)}
+          <div className="w-7 my-1 border-t pn-bd" />
+          {/* Operations */}
+          {railBtn(gitOpen, () => toggleCenter(gitOpen, () => setGitOpen(true)), 'Source Control', GitBranch)}
+          {railBtn(jobsOpen, () => toggleCenter(jobsOpen, () => setJobsOpen(true)), 'Jobs', Briefcase)}
+          {railBtn(deployOpen, () => toggleCenter(deployOpen, () => setDeployOpen(true)), 'Deploy to Cloud', Rocket)}
           <div className="flex-1" />
           {railBtn(railMenu === 'accounts', () => setRailMenu(railMenu === 'accounts' ? null : 'accounts'), 'Accounts', CircleUserRound, true)}
-          {railBtn(railMenu === 'settings', () => setRailMenu(railMenu === 'settings' ? null : 'settings'), 'Manage', SettingsIcon, true)}
+          {railBtn(railMenu === 'settings', () => setRailMenu(railMenu === 'settings' ? null : 'settings'), 'Settings', SettingsIcon, true)}
         </div>
 
         {/* VS Code-style rail popups (Settings gear / Accounts) */}
@@ -278,8 +339,7 @@ function App() {
               ? [
                   { label: 'Command Palette…', shortcut: '⇧⌘P', action: () => setOverlay('command') },
                   { label: 'Settings', shortcut: '⌘,', action: () => setOverlay('settings') },
-                  { label: 'Color Theme…', action: () => setOverlay('theme') },
-                  { label: 'Extensions', action: () => alert('Extensions — coming soon'), sep: true },
+                  { label: 'Color Theme…', action: () => setOverlay('theme'), sep: true },
                   { label: 'About PrismNote', action: () => alert('PrismNote — a modern, open-source data-science notebook.\nRust engine · React UI.') },
                 ].map((it: any, i) => (
                   <div key={i}>
@@ -298,15 +358,18 @@ function App() {
                   <div className="px-3 py-2 flex items-center gap-2 border-b pn-bd">
                     <div className="w-8 h-8 rounded-full prism-bg flex items-center justify-center text-white text-sm font-semibold">G</div>
                     <div className="leading-tight">
-                      <div className="pn-text text-[13px] font-medium">Guest</div>
-                      <div className="pn-faint text-[11px]">Not signed in</div>
+                      <div className="pn-text text-[13px] font-medium">Local workspace</div>
+                      <div className="pn-faint text-[11px]">No account required</div>
                     </div>
                   </div>
-                  <button onClick={() => { alert('Sign in — coming soon'); setRailMenu(null) }} className="w-full text-left px-3 py-1.5 rounded-md hover:bg-blue-600 hover:text-white">
-                    Sign in to sync settings…
+                  <div className="px-3 py-2 text-[12px] pn-faint leading-relaxed border-b pn-bd">
+                    PrismNote runs entirely on your machine. Sign-in &amp; cloud sync aren&apos;t part of the open-source build.
+                  </div>
+                  <button onClick={() => { setOverlay('settings'); setRailMenu(null) }} className="w-full text-left px-3 py-1.5 rounded-md hover:bg-blue-600 hover:text-white">
+                    Open Settings…
                   </button>
-                  <button onClick={() => { alert('Manage account — coming soon'); setRailMenu(null) }} className="w-full text-left px-3 py-1.5 rounded-md hover:bg-blue-600 hover:text-white">
-                    Manage account
+                  <button onClick={() => { window.open('https://github.com/Mullassery/prismnote#readme', '_blank'); setRailMenu(null) }} className="w-full text-left px-3 py-1.5 rounded-md hover:bg-blue-600 hover:text-white">
+                    Documentation
                   </button>
                 </>
               )}
@@ -322,6 +385,20 @@ function App() {
           {gitOpen && <GitPanel onClose={() => setGitOpen(false)} initialFocus={gitFocus} />}
           {deployOpen && <DeployPanel onClose={() => setDeployOpen(false)} />}
           {dataOpen && <DataPanel onClose={() => setDataOpen(false)} />}
+          {explorerPicker && (
+            <ExplorerPicker
+              onClose={() => setExplorerPicker(false)}
+              onPick={(target, title) => { setExplorer({ target, title }); setExplorerPicker(false) }}
+            />
+          )}
+          {explorer && (
+            <DataExplorer
+              target={explorer.target}
+              title={explorer.title}
+              onClose={() => setExplorer(null)}
+              onVisualize={openVizFor}
+            />
+          )}
           <div className="flex-1 overflow-hidden">
             {currentNotebookId ? (
               <Notebook />
@@ -335,20 +412,33 @@ function App() {
                     <span className="prism-text">Prism</span><span className="pn-text">Note</span>
                   </h1>
                   <p className="pn-muted mb-7 text-[15px]">A fast, modern, open-source data-science notebook.</p>
-                  <button
-                    onClick={newNotebook}
-                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl prism-bg text-white font-medium glow-accent hover:brightness-110 transition"
-                  >
-                    <Plus size={18} /> New Notebook
-                  </button>
+                  <div className="flex items-center justify-center gap-3">
+                    <button
+                      onClick={() => { closeCenterOverlays(); setExplorerPicker(true) }}
+                      className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl prism-bg text-white font-medium glow-accent hover:brightness-110 transition"
+                    >
+                      <Table2 size={18} /> Open Data Explorer
+                    </button>
+                    <button
+                      onClick={newNotebook}
+                      className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 pn-text font-medium transition"
+                    >
+                      <Plus size={18} /> New Notebook
+                    </button>
+                  </div>
                   {notebooks.length > 0 && (
-                    <p className="mt-4 text-sm pn-faint">…or pick one from the Explorer on the left.</p>
+                    <p className="mt-4 text-sm pn-faint">…or pick a notebook from the Explorer on the left.</p>
                   )}
                 </div>
               </div>
             )}
           </div>
-          {panels.terminal && <BottomPanel onClose={() => togglePanel('terminal')} />}
+          {panels.terminal && (
+            <BottomPanel
+              onClose={() => togglePanel('terminal')}
+              onOpenExplorer={(target, title) => showExplorer(target, title)}
+            />
+          )}
         </div>
 
         {/* Right: Cline-style agent (Ollama) */}

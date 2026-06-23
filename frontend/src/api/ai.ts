@@ -37,3 +37,38 @@ export async function aiConfigured(): Promise<boolean> {
     return false
   }
 }
+
+export interface AIConfigDetail {
+  configured: boolean
+  provider: 'ollama' | 'claude' | 'openai' | null
+  ollama_url: string | null
+  ollama_model: string | null
+  openai_model: string | null
+  claude_key_set: boolean
+  openai_key_set: boolean
+}
+
+export interface AIConfigInput {
+  provider: 'ollama' | 'claude' | 'openai'
+  ollama_url?: string
+  ollama_model?: string
+  claude_api_key?: string
+  openai_api_key?: string
+  openai_model?: string
+}
+
+/** Read the active AI config (provider + non-secret fields; key presence only). */
+export async function getAiConfig(): Promise<AIConfigDetail> {
+  const res = await axios.get<AIConfigDetail>(`${API}/ai/config`)
+  return res.data
+}
+
+/** Persist the AI provider config; hot-swaps the backend engine. */
+export async function setAiConfig(cfg: AIConfigInput): Promise<void> {
+  await axios.post(`${API}/ai/config`, cfg)
+}
+
+/** Single source of truth for the local Ollama endpoint (chat agent + inline
+ *  autocomplete). Set in Settings → AI. */
+export const ollamaEndpoint = (): string =>
+  localStorage.getItem('pn-ollama') || 'http://localhost:11434'

@@ -114,12 +114,22 @@ def _capture_figures(outputs):
     try:
         for num in plt.get_fignums():
             fig = plt.figure(num)
+            data = {}
             buf = io.BytesIO()
             fig.savefig(buf, format="png", bbox_inches="tight", dpi=110)
             buf.seek(0)
+            data["image/png"] = base64.b64encode(buf.read()).decode("ascii")
+            # Also emit a vector copy so the Visualization Pane can offer crisp
+            # zoom and SVG export (an edge over raster-only plot panes).
+            try:
+                sbuf = io.StringIO()
+                fig.savefig(sbuf, format="svg", bbox_inches="tight")
+                data["image/svg+xml"] = sbuf.getvalue()
+            except Exception:
+                pass
             outputs.append({
                 "output_type": "display_data",
-                "data": {"image/png": base64.b64encode(buf.read()).decode("ascii")},
+                "data": data,
                 "metadata": {},
             })
         plt.close("all")
@@ -219,6 +229,500 @@ def _inspect():
         out.append(info)
     return out
 
+def _as_dataframe(v):
+    """Coerce a user value to a pandas DataFrame for exploration, or None."""
+    import pandas as _pd
+    if isinstance(v, _pd.DataFrame):
+        return v
+    # polars (best-effort)
+    if type(v).__module__.startswith("polars") and hasattr(v, "to_pandas"):
+        try:
+            return v.to_pandas()
+        except Exception:
+            return None
+    # numpy ndarray → DataFrame
+    if type(v).__name__ == "ndarray":
+        try:
+            import numpy as _np
+            a = _np.asarray(v)
+            if a.ndim == 1:
+                return _pd.DataFrame({"value": a})
+            if a.ndim == 2:
+                return _pd.DataFrame(a, columns=[f"c{i}" for i in range(a.shape[1])])
+        except Exception:
+            return None
+    if isinstance(v, _pd.Series):
+        return v.to_frame()
+    return None
+
+
+def _logical(s):
+    """Logical type for a column. Accepts a Series (preferred, so we can sniff
+    nested struct/array values) or a bare dtype."""
+    import pandas as _pd
+    dtype = s.dtype if hasattr(s, "dtype") else s
+    if _pd.api.types.is_bool_dtype(dtype):
+        return "bool"
+    if _pd.api.types.is_numeric_dtype(dtype):
+        return "number"
+    if _pd.api.types.is_datetime64_any_dtype(dtype):
+        return "datetime"
+    # pyarrow-backed nested dtypes (DuckDB / pandas ArrowDtype)
+    try:
+        import pyarrow as _pa
+        pat = getattr(dtype, "pyarrow_dtype", None)
+        if pat is not None:
+            if _pa.types.is_list(pat) or _pa.types.is_large_list(pat) or _pa.types.is_fixed_size_list(pat):
+                return "array"
+            if _pa.types.is_struct(pat) or _pa.types.is_map(pat):
+                return "struct"
+    except Exception:
+        pass
+    # object columns: sniff a non-null sample for Python list/dict (struct/array)
+    if dtype == object and hasattr(s, "dropna"):
+        for v in s.dropna().head(20):
+            if isinstance(v, (list, tuple)):
+                return "array"
+            if isinstance(v, dict):
+                return "struct"
+            break
+    return "string"
+
+
+def _jsonable(x):
+    """Make a scalar JSON-safe (handle NaN/NaT/numpy types)."""
+    import pandas as _pd
+    try:
+        if x is None or (_pd.isna(x) if _np_isscalar(x) else False):
+            return None
+    except Exception:
+        pass
+    if hasattr(x, "item"):
+        try:
+            return x.item()
+        except Exception:
+            pass
+    if isinstance(x, (int, float, str, bool)):
+        return x
+    return str(x)
+
+
+def _np_isscalar(x):
+    try:
+        import numpy as _np
+        return _np.isscalar(x) or x is None
+    except Exception:
+        return not hasattr(x, "__len__")
+
+
+def _apply_filters(df, filters):
+    import pandas as _pd
+    for f in filters or []:
+        col, op, val = f.get("col"), f.get("op"), f.get("value")
+        if col not in df.columns:
+            continue
+        s = df[col]
+        try:
+            if op == "==":
+                df = df[s == val]
+            elif op == "!=":
+                df = df[s != val]
+            elif op == "<":
+                df = df[s < val]
+            elif op == "<=":
+                df = df[s <= val]
+            elif op == ">":
+                df = df[s > val]
+            elif op == ">=":
+                df = df[s >= val]
+            elif op == "contains":
+                df = df[s.astype(str).str.contains(str(val), case=False, na=False)]
+            elif op == "in":
+                df = df[s.isin(val if isinstance(val, list) else [val])]
+            elif op == "isnull":
+                df = df[s.isna()]
+            elif op == "notnull":
+                df = df[s.notna()]
+        except Exception:
+            pass
+    return df
+
+
+def _duckdb_to_df(sql):
+    """Run a DuckDB query and return a pandas DataFrame. DuckDB natively reads
+    Parquet/CSV/JSON and, with extensions, Iceberg/Delta — so the Data Explorer
+    works on open table/file formats, not just in-memory frames."""
+    import duckdb as _ddb
+    con = _ns.get("__prism_duck__")
+    if con is None:
+        con = _ddb.connect(database=":memory:")
+        # best-effort: enable open table formats if the extensions are present
+        for ext in ("httpfs", "iceberg", "delta"):
+            try:
+                con.execute(f"INSTALL {ext}; LOAD {ext};")
+            except Exception:
+                pass
+        _ns["__prism_duck__"] = con
+    return con.execute(sql).fetch_df()
+
+
+def _read_file_sql(path):
+    """Build a DuckDB scan expression for a file path based on its extension."""
+    p = path.lower()
+    q = path.replace("'", "''")
+    if p.endswith(".parquet") or p.endswith(".pq"):
+        return f"SELECT * FROM read_parquet('{q}')"
+    if p.endswith(".csv") or p.endswith(".tsv") or p.endswith(".txt"):
+        return f"SELECT * FROM read_csv_auto('{q}')"
+    if p.endswith(".json") or p.endswith(".ndjson") or p.endswith(".jsonl"):
+        return f"SELECT * FROM read_json_auto('{q}')"
+    if p.endswith(".arrow") or p.endswith(".feather"):
+        return f"SELECT * FROM read_parquet('{q}')"  # fallback; arrow often readable
+    # An Iceberg table directory (has metadata/) — use iceberg_scan.
+    return f"SELECT * FROM iceberg_scan('{q}')"
+
+
+def _load_source(req):
+    """Resolve a Data Explorer request to a pandas DataFrame from one of:
+    - a live kernel variable  {"var": "df"}  or  {"source": {"kind":"var","name":"df"}}
+    - a file (DuckDB)         {"source": {"kind":"file","path":"data.parquet"}}
+    - a DuckDB SQL query      {"source": {"kind":"sql","query":"SELECT ..."}}
+    Results for file/sql sources are cached in the kernel so paging is cheap."""
+    src = req.get("source")
+    if not src:
+        name = req.get("var")
+        v = _ns.get(name)
+        if v is None:
+            return None, f"variable '{name}' not found"
+        df = _as_dataframe(v)
+        return (df, None) if df is not None else (None, f"'{name}' is not tabular (got {type(v).__name__})")
+
+    kind = src.get("kind")
+    if kind == "var":
+        v = _ns.get(src.get("name"))
+        if v is None:
+            return None, f"variable '{src.get('name')}' not found"
+        df = _as_dataframe(v)
+        return (df, None) if df is not None else (None, "not a tabular value")
+
+    cache = _ns.setdefault("__prism_explore_cache__", {})
+    key = json.dumps(src, sort_keys=True)
+    if key in cache:
+        return cache[key], None
+    try:
+        if kind == "file":
+            df = _duckdb_to_df(_read_file_sql(src["path"]))
+        elif kind == "sql":
+            df = _duckdb_to_df(src["query"])
+        else:
+            return None, f"unknown source kind '{kind}'"
+    except Exception as e:
+        return None, str(e)
+    cache[key] = df
+    return df, None
+
+
+def _sql_refs(query):
+    """Best-effort extraction of upstream sources referenced by a DuckDB query:
+    file readers (read_parquet/read_csv_auto/read_json_auto/iceberg_scan/
+    delta_scan) and plain FROM/JOIN table names."""
+    import re
+    refs = []
+    seen = set()
+    for fn in ("read_parquet", "read_csv_auto", "read_csv", "read_json_auto",
+               "read_json", "iceberg_scan", "delta_scan", "parquet_scan"):
+        for m in re.finditer(fn + r"\(\s*'([^']+)'", query, re.IGNORECASE):
+            t = m.group(1)
+            if t not in seen:
+                seen.add(t)
+                refs.append({"type": fn, "target": t})
+    for m in re.finditer(r"\b(?:from|join)\s+([A-Za-z_][\w.]*)", query, re.IGNORECASE):
+        t = m.group(1)
+        if t.lower() in ("read_parquet", "read_csv_auto", "read_csv", "read_json_auto",
+                         "read_json", "iceberg_scan", "delta_scan", "parquet_scan"):
+            continue
+        if t not in seen:
+            seen.add(t)
+            refs.append({"type": "table", "target": t})
+    return refs
+
+
+def _file_format(path):
+    p = path.lower()
+    for ext, fmt in ((".parquet", "Parquet"), (".pq", "Parquet"), (".csv", "CSV"),
+                     (".tsv", "TSV"), (".json", "JSON"), (".ndjson", "JSON"),
+                     (".jsonl", "JSON"), (".arrow", "Arrow"), (".feather", "Arrow")):
+        if p.endswith(ext):
+            return fmt
+    return "Iceberg/other"
+
+
+def _explore(req):
+    """Backend for the Data Explorer / Visualization Pane. Operates on a live
+    variable, a DuckDB-readable file, or a DuckDB query; never executes
+    arbitrary user code."""
+    op = req.get("op")
+    if op == "lineage":
+        src = req.get("source")
+        info = {}
+        if not src:
+            name = req.get("var")
+            v = _ns.get(name)
+            info = {"kind": "variable", "name": name, "obj_type": type(v).__name__ if v is not None else None}
+        elif src.get("kind") == "var":
+            v = _ns.get(src.get("name"))
+            info = {"kind": "variable", "name": src.get("name"), "obj_type": type(v).__name__ if v is not None else None}
+        elif src.get("kind") == "file":
+            import os, datetime
+            p = src.get("path", "")
+            info = {"kind": "file", "path": p, "format": _file_format(p)}
+            try:
+                st = os.stat(p)
+                info["size_bytes"] = int(st.st_size)
+                info["modified"] = datetime.datetime.fromtimestamp(st.st_mtime).isoformat(timespec="seconds")
+                info["exists"] = True
+            except Exception:
+                info["exists"] = False
+        elif src.get("kind") == "sql":
+            q = src.get("query", "")
+            info = {"kind": "sql", "engine": "DuckDB", "query": q, "references": _sql_refs(q)}
+        # attach the resolved shape so the UI can show "produces N×M"
+        d, e = _load_source(req)
+        if d is not None:
+            info["shape"] = [int(d.shape[0]), int(d.shape[1])]
+            info["columns"] = [str(c) for c in d.columns]
+        return info
+
+    df, err = _load_source(req)
+    if err:
+        return {"error": err}
+    if df is None:
+        return {"error": "could not load data source"}
+
+    if op == "overview":
+        # Table-level metadata — richer than a typical warehouse "details" pane.
+        n = max(1, len(df))
+        nulls_per_col = df.isna().sum()
+        total_cells = int(df.shape[0]) * int(df.shape[1])
+        total_nulls = int(nulls_per_col.sum())
+        try:
+            dup_rows = int(df.duplicated().sum())
+        except Exception:
+            dup_rows = None
+        type_breakdown = {}
+        for c in df.columns:
+            lg = _logical(df[c])
+            type_breakdown[lg] = type_breakdown.get(lg, 0) + 1
+        # most-incomplete columns (highest null %), handy for data-quality triage
+        worst = sorted(
+            ({"name": str(c), "null_pct": round(100.0 * int(nulls_per_col[c]) / n, 2)} for c in df.columns),
+            key=lambda d: d["null_pct"], reverse=True,
+        )[:5]
+        # statistical insights: fully-populated vs constant (zero-variance) columns
+        complete_cols = int(sum(1 for c in df.columns if int(nulls_per_col[c]) == 0))
+        constant_cols = 0
+        for c in df.columns:
+            try:
+                if int(df[c].nunique(dropna=False)) <= 1:
+                    constant_cols += 1
+            except TypeError:
+                pass
+        return {
+            "rows": int(df.shape[0]),
+            "cols": int(df.shape[1]),
+            "mem_bytes": int(df.memory_usage(deep=True).sum()),
+            "total_cells": total_cells,
+            "total_nulls": total_nulls,
+            "null_pct": round(100.0 * total_nulls / max(1, total_cells), 2),
+            "duplicate_rows": dup_rows,
+            "type_breakdown": type_breakdown,
+            "worst_columns": worst,
+            "complete_columns": complete_cols,
+            "constant_columns": constant_cols,
+            "index_name": str(df.index.name) if df.index.name is not None else None,
+        }
+
+    if op == "describe":
+        # One-pass per-column statistics table (a richer df.describe(include='all')).
+        n = max(1, len(df))
+        out = []
+        for c in df.columns:
+            s = df[c]
+            lg = _logical(s)
+            try:
+                nulls = int(s.isna().sum())
+            except (ValueError, TypeError):
+                nulls = int(sum(1 for v in s if v is None))
+            rec = {
+                "name": str(c), "dtype": str(s.dtype), "logical": lg,
+                "count": int(len(s) - nulls), "nulls": nulls,
+                "null_pct": round(100.0 * nulls / n, 2),
+            }
+            try:
+                rec["distinct"] = int(s.nunique(dropna=True))
+            except TypeError:
+                rec["distinct"] = int(s.dropna().astype(str).nunique())
+            if lg == "number":
+                sv = s.dropna()
+                if len(sv):
+                    rec.update({
+                        "mean": _jsonable(sv.mean()), "std": _jsonable(sv.std()),
+                        "min": _jsonable(sv.min()), "q1": _jsonable(sv.quantile(0.25)),
+                        "median": _jsonable(sv.median()), "q3": _jsonable(sv.quantile(0.75)),
+                        "max": _jsonable(sv.max()), "sum": _jsonable(sv.sum()),
+                        "skew": _jsonable(sv.skew()) if len(sv) > 2 else None,
+                        "kurtosis": _jsonable(sv.kurtosis()) if len(sv) > 3 else None,
+                    })
+            elif lg not in ("array", "struct"):
+                try:
+                    vc = s.value_counts(dropna=True)
+                    if len(vc):
+                        rec["top"] = _jsonable(vc.index[0])
+                        rec["freq"] = int(vc.iloc[0])
+                except TypeError:
+                    pass
+            out.append(rec)
+        return {"columns": out, "n": int(len(df))}
+
+    if op == "schema":
+        cols = []
+        n = max(1, len(df))
+        for c in df.columns:
+            s = df[c]
+            nulls = int(s.isna().sum())
+            cols.append({
+                "name": str(c),
+                "dtype": str(s.dtype),
+                "logical": _logical(s),
+                "null_count": nulls,
+                "null_pct": round(100.0 * nulls / n, 2),
+            })
+        return {
+            "shape": [int(df.shape[0]), int(df.shape[1])],
+            "columns": cols,
+            "mem_bytes": int(df.memory_usage(deep=True).sum()),
+        }
+
+    if op == "page":
+        offset = int(req.get("offset", 0))
+        limit = min(int(req.get("limit", 100)), 500)
+        sub = _apply_filters(df, req.get("filters"))
+        search = req.get("search")
+        if search:
+            mask = sub.apply(lambda r: r.astype(str).str.contains(str(search), case=False, na=False).any(), axis=1)
+            sub = sub[mask]
+        sort = req.get("sort") or []
+        if sort:
+            by = [s["col"] for s in sort if s.get("col") in sub.columns]
+            asc = [s.get("dir", "asc") != "desc" for s in sort if s.get("col") in sub.columns]
+            if by:
+                sub = sub.sort_values(by=by, ascending=asc, kind="mergesort")
+        total = int(len(sub))
+        window = sub.iloc[offset:offset + limit]
+        payload = json.loads(window.to_json(orient="split", date_format="iso"))
+        # drop the pandas index from the split payload; keep columns + data
+        return {"columns": [str(c) for c in payload["columns"]], "data": payload["data"], "total": total}
+
+    if op == "profile":
+        col = req.get("col")
+        if col not in df.columns:
+            return {"error": f"column '{col}' not found"}
+        s = df[col]
+        n = max(1, len(s))
+        lg = _logical(s)
+        # nulls in nested columns can be array-like; count element-wise safely
+        try:
+            null_count = int(s.isna().sum())
+        except (ValueError, TypeError):
+            null_count = int(sum(1 for v in s if v is None))
+        null_pct = round(100.0 * null_count / n, 2)
+        if lg in ("array", "struct"):
+            sv = [v for v in s if v is not None]
+            lens = [len(v) for v in sv if hasattr(v, "__len__")]
+            keys = {}
+            if lg == "struct":
+                for v in sv[:1000]:
+                    if isinstance(v, dict):
+                        for k in v.keys():
+                            keys[str(k)] = keys.get(str(k), 0) + 1
+            return {
+                "kind": "nested", "subtype": lg, "null_pct": null_pct,
+                "count": len(sv),
+                "min_len": min(lens) if lens else None,
+                "max_len": max(lens) if lens else None,
+                "avg_len": round(sum(lens) / len(lens), 2) if lens else None,
+                "fields": sorted(keys.keys())[:30] if keys else None,
+            }
+        if lg == "number":
+            sv = s.dropna()
+            if len(sv) == 0:
+                return {"kind": "number", "null_pct": null_pct, "hist": {"counts": [], "edges": []}}
+            import numpy as _np
+            counts, edges = _np.histogram(sv.values, bins=min(20, max(1, len(sv.unique()))))
+            q = sv.quantile([0.25, 0.5, 0.75]).tolist()
+            return {
+                "kind": "number", "null_pct": null_pct,
+                "min": _jsonable(sv.min()), "max": _jsonable(sv.max()),
+                "mean": _jsonable(sv.mean()), "median": _jsonable(sv.median()),
+                "std": _jsonable(sv.std()), "q": [_jsonable(x) for x in q],
+                "hist": {"counts": [int(c) for c in counts], "edges": [float(e) for e in edges]},
+            }
+        if lg == "datetime":
+            sv = s.dropna()
+            return {
+                "kind": "datetime", "null_pct": null_pct,
+                "min": _jsonable(sv.min()) if len(sv) else None,
+                "max": _jsonable(sv.max()) if len(sv) else None,
+                "cardinality": int(sv.nunique()),
+            }
+        try:
+            vc = s.value_counts(dropna=True).head(20)
+            card = int(s.nunique(dropna=True))
+            top = [{"value": _jsonable(idx), "count": int(cnt)} for idx, cnt in vc.items()]
+        except TypeError:
+            # unhashable values that slipped past the sniff — stringify them
+            ss = s.dropna().astype(str)
+            vc = ss.value_counts().head(20)
+            card = int(ss.nunique())
+            top = [{"value": idx, "count": int(cnt)} for idx, cnt in vc.items()]
+        return {
+            "kind": "category", "null_pct": null_pct,
+            "cardinality": card, "top": top,
+        }
+
+    if op == "aggregate":
+        dims = [d for d in (req.get("dims") or []) if d in df.columns]
+        measures = req.get("measures") or []
+        sub = _apply_filters(df, req.get("filters"))
+        limit = min(int(req.get("limit", 5000)), 50000)
+        if not measures:
+            # no measures: just count rows per dim combo
+            if dims:
+                g = sub.groupby(dims, dropna=False).size().reset_index(name="count")
+            else:
+                g = __import__("pandas").DataFrame({"count": [len(sub)]})
+        else:
+            aggmap = {}
+            rename = {}
+            for m in measures:
+                c, a = m.get("col"), m.get("agg", "sum")
+                if c in sub.columns or a == "count":
+                    aggmap.setdefault(c, []).append(a)
+            if dims:
+                g = sub.groupby(dims, dropna=False).agg(aggmap)
+                g.columns = ["_".join(map(str, t)).strip("_") for t in g.columns.to_flat_index()]
+                g = g.reset_index()
+            else:
+                agg_series = sub.agg(aggmap)
+                g = __import__("pandas").DataFrame(agg_series).T.reset_index(drop=True)
+                g.columns = [str(c) for c in g.columns]
+        g = g.head(limit)
+        payload = json.loads(g.to_json(orient="split", date_format="iso"))
+        return {"columns": [str(c) for c in payload["columns"]], "data": payload["data"], "total": int(len(g))}
+
+    return {"error": f"unknown op '{op}'"}
+
+
 def _main():
     for line in sys.stdin:
         line = line.strip()
@@ -230,6 +734,14 @@ def _main():
             continue
         if src == "__PRISM_INSPECT__":
             sys.stdout.write("__PRISM_RESULT__" + json.dumps({"inspect": _inspect()}) + "\n")
+            sys.stdout.flush()
+            continue
+        if isinstance(src, dict) and src.get("__prism_cmd__") == "explore":
+            try:
+                res = _explore(src.get("req", {}))
+            except Exception as e:
+                res = {"error": str(e)}
+            sys.stdout.write("__PRISM_RESULT__" + json.dumps({"explore": res}) + "\n")
             sys.stdout.flush()
             continue
         outputs = _run(src)
@@ -452,6 +964,32 @@ impl KernelManager {
             if let Some(rest) = line.strip_prefix(RESULT_PREFIX) {
                 let res: Value = serde_json::from_str(rest.trim_end())?;
                 return Ok(res.get("inspect").cloned().unwrap_or(Value::Array(vec![])));
+            }
+            // ignore stray stream frames
+        }
+    }
+
+    /// Run a Data Explorer query against the live namespace (schema/page/profile/
+    /// aggregate). Like `inspect()`, it does not run user code or bump the counter.
+    pub async fn explore(&mut self, req: Value) -> Result<Value> {
+        let stdin = self.stdin.as_mut().ok_or_else(|| anyhow!("kernel not running"))?;
+        let cmd = json!({ "__prism_cmd__": "explore", "req": req });
+        let msg = serde_json::to_string(&cmd)?;
+        stdin.write_all(msg.as_bytes()).await?;
+        stdin.write_all(b"\n").await?;
+        stdin.flush().await?;
+
+        let reader = self.stdout.as_mut().ok_or_else(|| anyhow!("kernel not running"))?;
+        let mut line = String::new();
+        loop {
+            line.clear();
+            let n = reader.read_line(&mut line).await?;
+            if n == 0 {
+                return Err(anyhow!("kernel exited unexpectedly"));
+            }
+            if let Some(rest) = line.strip_prefix(RESULT_PREFIX) {
+                let res: Value = serde_json::from_str(rest.trim_end())?;
+                return Ok(res.get("explore").cloned().unwrap_or(json!({ "error": "no result" })));
             }
             // ignore stray stream frames
         }

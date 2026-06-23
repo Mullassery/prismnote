@@ -1,15 +1,19 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { TerminalSquare, BarChart3, ListChecks, ChevronDown, X, Minus, SquareTerminal, Plus, Variable, RefreshCw } from 'lucide-react'
+import { TerminalSquare, BarChart3, ListChecks, ChevronDown, X, Minus, SquareTerminal, Plus, Variable, RefreshCw, Table2 } from 'lucide-react'
 import { useNotebookStore } from '../hooks/useNotebook'
 import { useFontSize } from '../hooks/useFontSize'
+import { useViz } from '../hooks/useViz'
+import VizPane from './VizPane'
+import type { ExplorerTarget } from './DataExplorer'
 
 type Tab = 'terminal' | 'output' | 'plots' | 'console' | 'variables'
 
 interface BottomPanelProps {
   onClose: () => void
+  onOpenExplorer?: (target: ExplorerTarget, title: string) => void
 }
 
-export default function BottomPanel({ onClose }: BottomPanelProps) {
+export default function BottomPanel({ onClose, onOpenExplorer }: BottomPanelProps) {
   const { currentNotebook } = useNotebookStore()
   const [tab, setTab] = useState<Tab>('output')
   const [collapsed, setCollapsed] = useState(false)
@@ -136,7 +140,16 @@ export default function BottomPanel({ onClose }: BottomPanelProps) {
   const textOutputs = outputs.filter(
     ({ o }) => o.output_type === 'stream' || o.output_type === 'execute_result' || o.output_type === 'error'
   )
-  const imageOutputs = outputs.filter(({ o }) => o.data?.['image/png'])
+  const imageOutputs = outputs.filter(({ o }) => o.data?.['image/png'] || o.data?.['image/svg+xml'])
+
+  // The Data Explorer's "Visualize" button bumps the viz nonce — jump to Plots.
+  const vizNonce = useViz((s) => s.nonce)
+  useEffect(() => {
+    if (vizNonce > 0) {
+      setTab('plots')
+      setCollapsed(false)
+    }
+  }, [vizNonce])
 
   const tabs: { id: Tab; label: string; icon: any; badge?: number }[] = [
     { id: 'output', label: 'Output', icon: ListChecks, badge: textOutputs.length || undefined },
@@ -259,15 +272,31 @@ export default function BottomPanel({ onClose }: BottomPanelProps) {
                     </tr>
                   </thead>
                   <tbody>
-                    {variables.map((v) => (
-                      <tr key={v.name} className="border-t pn-bd align-top">
-                        <td className="px-2 py-1 text-blue-300 whitespace-nowrap">{v.name}</td>
-                        <td className="px-2 py-1 pn-muted whitespace-nowrap">
-                          {v.type}{v.shape ? ` ${JSON.stringify(v.shape)}` : v.len !== undefined ? ` (${v.len})` : ''}
-                        </td>
-                        <td className="px-2 py-1 pn-text break-all">{v.preview}</td>
-                      </tr>
-                    ))}
+                    {variables.map((v) => {
+                      const tabular = /DataFrame|ndarray|Series/.test(v.type)
+                      return (
+                        <tr key={v.name} className="border-t pn-bd align-top group">
+                          <td className="px-2 py-1 text-blue-300 whitespace-nowrap">{v.name}</td>
+                          <td className="px-2 py-1 pn-muted whitespace-nowrap">
+                            {v.type}{v.shape ? ` ${JSON.stringify(v.shape)}` : v.len !== undefined ? ` (${v.len})` : ''}
+                          </td>
+                          <td className="px-2 py-1 pn-text break-all">
+                            <div className="flex items-start gap-2">
+                              <span className="flex-1">{v.preview}</span>
+                              {tabular && onOpenExplorer && (
+                                <button
+                                  onClick={() => onOpenExplorer({ var: v.name }, v.name)}
+                                  title="Open in Data Explorer"
+                                  className="opacity-0 group-hover:opacity-100 flex items-center gap-1 px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-200 text-[10px] whitespace-nowrap"
+                                >
+                                  <Table2 size={11} /> Explore
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    })}
                   </tbody>
                 </table>
               )}
@@ -304,16 +333,8 @@ export default function BottomPanel({ onClose }: BottomPanelProps) {
           )}
 
           {tab === 'plots' && (
-            <div className="p-3 flex flex-wrap gap-3">
-              {imageOutputs.length === 0 && (
-                <div className="pn-faint">Plots produced by your code (matplotlib, etc.) appear here.</div>
-              )}
-              {imageOutputs.map(({ cell, o }, i) => (
-                <figure key={i} className="bg-white rounded p-1 shadow">
-                  <img src={`data:image/png;base64,${o.data['image/png']}`} alt={`plot ${cell}`} className="max-h-64" />
-                  <figcaption className="text-[10px] text-center pn-faint">Cell [{cell + 1}]</figcaption>
-                </figure>
-              ))}
+            <div className="h-full">
+              <VizPane />
             </div>
           )}
         </div>

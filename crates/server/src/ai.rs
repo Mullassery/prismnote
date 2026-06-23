@@ -36,6 +36,11 @@ impl AIEngine {
         AIEngine { config }
     }
 
+    /// Read-only view of the active config (used by the settings endpoint).
+    pub fn config(&self) -> &AIConfig {
+        &self.config
+    }
+
     pub async fn explain(&self, code: &str) -> Result<String> {
         match self.config.provider.as_str() {
             "ollama" => self.ollama_explain(code).await,

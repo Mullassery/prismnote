@@ -445,14 +445,43 @@ pub struct AIConfigResponse {
     pub provider: Option<String>,
 }
 
-pub async fn get_ai_config(
-    State(state): State<Arc<AppState>>,
-) -> Json<AIConfigResponse> {
-    let configured = state.ai_engine.read().await.is_some();
-    Json(AIConfigResponse {
-        configured,
-        provider: if configured { Some("configured".to_string()) } else { None },
-    })
+// A fuller view for the settings UI: the active provider + non-secret fields, and
+// booleans for whether API keys are present (never the key values themselves).
+#[derive(Serialize)]
+pub struct AIConfigDetail {
+    pub configured: bool,
+    pub provider: Option<String>,
+    pub ollama_url: Option<String>,
+    pub ollama_model: Option<String>,
+    pub openai_model: Option<String>,
+    pub claude_key_set: bool,
+    pub openai_key_set: bool,
+}
+
+pub async fn get_ai_config(State(state): State<Arc<AppState>>) -> Json<AIConfigDetail> {
+    match state.ai_engine.read().await.as_ref() {
+        Some(engine) => {
+            let c = engine.config();
+            Json(AIConfigDetail {
+                configured: true,
+                provider: Some(c.provider.clone()),
+                ollama_url: c.ollama_url.clone(),
+                ollama_model: c.ollama_model.clone(),
+                openai_model: c.openai_model.clone(),
+                claude_key_set: c.claude_api_key.as_deref().map(|k| !k.is_empty()).unwrap_or(false),
+                openai_key_set: c.openai_api_key.as_deref().map(|k| !k.is_empty()).unwrap_or(false),
+            })
+        }
+        None => Json(AIConfigDetail {
+            configured: false,
+            provider: None,
+            ollama_url: None,
+            ollama_model: None,
+            openai_model: None,
+            claude_key_set: false,
+            openai_key_set: false,
+        }),
+    }
 }
 
 #[derive(Deserialize)]
@@ -1308,6 +1337,177 @@ pub async fn kernel_variables(State(state): State<Arc<AppState>>) -> (StatusCode
         },
         None => (StatusCode::SERVICE_UNAVAILABLE, Json(json!({ "variables": [] }))),
     }
+}
+
+// ── Code formatting (pretty-print) ────────────────────────────────────────────
+// Reformats Python cell source with Black ("pretty" PEP8 formatter), falling
+// back to autopep8, then leaving the code untouched if neither is installed.
+pub async fn format_code(Json(req): Json<serde_json::Value>) -> (StatusCode, Json<serde_json::Value>) {
+    let code = req.get("code").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    if code.trim().is_empty() {
+        return (StatusCode::OK, Json(json!({ "code": code, "changed": false })));
+    }
+    match run_formatter(&code).await {
+        Some(formatted) => (StatusCode::OK, Json(json!({ "code": formatted, "changed": formatted != code }))),
+        None => (StatusCode::OK, Json(json!({ "code": code, "changed": false }))),
+    }
+}
+
+async fn run_formatter(code: &str) -> Option<String> {
+    // Black first (the de-facto standard), then autopep8.
+    if let Some(out) = pipe_python(&["-m", "black", "-q", "-"], code).await {
+        return Some(out);
+    }
+    if let Some(out) = pipe_python(&["-m", "autopep8", "-"], code).await {
+        return Some(out);
+    }
+    None
+}
+
+async fn pipe_python(args: &[&str], code: &str) -> Option<String> {
+    use tokio::io::AsyncWriteExt;
+    let mut child = tokio::process::Command::new("python")
+        .args(args)
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::null())
+        .spawn()
+        .ok()?;
+    if let Some(mut stdin) = child.stdin.take() {
+        stdin.write_all(code.as_bytes()).await.ok()?;
+        // drop stdin to signal EOF so the formatter can finish
+    }
+    let out = child.wait_with_output().await.ok()?;
+    if !out.status.success() {
+        return None; // syntax error etc. — leave the code as-is
+    }
+    let s = String::from_utf8_lossy(&out.stdout).to_string();
+    if s.trim().is_empty() {
+        return None;
+    }
+    Some(s)
+}
+
+// ── Data Explorer ─────────────────────────────────────────────────────────────
+// All ops share one handler: the JSON body (which carries `op` plus its params,
+// and either `var` or a `source` spec for files/DuckDB) is forwarded straight to
+// the kernel's `explore` command. Works on live frames and DuckDB-readable
+// open formats (Parquet/CSV/JSON/Iceberg/Delta).
+async fn explore_dispatch(
+    state: Arc<AppState>,
+    mut req: serde_json::Value,
+    op: &str,
+) -> (StatusCode, Json<serde_json::Value>) {
+    if let Some(map) = req.as_object_mut() {
+        map.insert("op".to_string(), json!(op));
+    }
+    let mut kernel = state.kernel.lock().await;
+    match kernel.as_mut() {
+        Some(k) => match k.explore(req).await {
+            Ok(v) => {
+                if v.get("error").is_some() {
+                    (StatusCode::BAD_REQUEST, Json(v))
+                } else {
+                    (StatusCode::OK, Json(v))
+                }
+            }
+            Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "error": e.to_string() }))),
+        },
+        None => (StatusCode::SERVICE_UNAVAILABLE, Json(json!({ "error": "kernel unavailable" }))),
+    }
+}
+
+pub async fn explore_overview(State(state): State<Arc<AppState>>, Json(req): Json<serde_json::Value>) -> (StatusCode, Json<serde_json::Value>) {
+    explore_dispatch(state, req, "overview").await
+}
+pub async fn explore_schema(State(state): State<Arc<AppState>>, Json(req): Json<serde_json::Value>) -> (StatusCode, Json<serde_json::Value>) {
+    explore_dispatch(state, req, "schema").await
+}
+pub async fn explore_describe(State(state): State<Arc<AppState>>, Json(req): Json<serde_json::Value>) -> (StatusCode, Json<serde_json::Value>) {
+    explore_dispatch(state, req, "describe").await
+}
+pub async fn explore_lineage(State(state): State<Arc<AppState>>, Json(req): Json<serde_json::Value>) -> (StatusCode, Json<serde_json::Value>) {
+    explore_dispatch(state, req, "lineage").await
+}
+pub async fn explore_page(State(state): State<Arc<AppState>>, Json(req): Json<serde_json::Value>) -> (StatusCode, Json<serde_json::Value>) {
+    explore_dispatch(state, req, "page").await
+}
+pub async fn explore_profile(State(state): State<Arc<AppState>>, Json(req): Json<serde_json::Value>) -> (StatusCode, Json<serde_json::Value>) {
+    explore_dispatch(state, req, "profile").await
+}
+pub async fn explore_aggregate(State(state): State<Arc<AppState>>, Json(req): Json<serde_json::Value>) -> (StatusCode, Json<serde_json::Value>) {
+    explore_dispatch(state, req, "aggregate").await
+}
+
+/// Generate reproducible pandas code for the current Data Explorer view (source
+/// + filters + sort) so users can drop it into a notebook cell — reusing the
+/// established "insert as cell" idiom.
+pub async fn explore_export_code(Json(req): Json<serde_json::Value>) -> (StatusCode, Json<serde_json::Value>) {
+    let code = build_explore_code(&req);
+    (StatusCode::OK, Json(json!({ "code": code })))
+}
+
+fn build_explore_code(req: &serde_json::Value) -> String {
+    let mut lines: Vec<String> = vec!["import pandas as pd".to_string()];
+    // load
+    if let Some(src) = req.get("source") {
+        match src.get("kind").and_then(|v| v.as_str()) {
+            Some("file") => {
+                let path = src.get("path").and_then(|v| v.as_str()).unwrap_or("");
+                let p = path.to_lowercase();
+                if p.ends_with(".csv") || p.ends_with(".tsv") || p.ends_with(".txt") {
+                    lines.push(format!("df = pd.read_csv({})", js(path)));
+                } else if p.ends_with(".json") || p.ends_with(".ndjson") || p.ends_with(".jsonl") {
+                    lines.push(format!("df = pd.read_json({})", js(path)));
+                } else {
+                    lines.push("import duckdb".to_string());
+                    lines.push(format!("df = duckdb.sql(\"SELECT * FROM '{}'\").df()", path.replace('"', "")));
+                }
+            }
+            Some("sql") => {
+                let q = src.get("query").and_then(|v| v.as_str()).unwrap_or("");
+                lines.push("import duckdb".to_string());
+                lines.push(format!("df = duckdb.sql({}).df()", js(q)));
+            }
+            _ => {
+                let name = src.get("name").and_then(|v| v.as_str()).unwrap_or("df");
+                lines.push(format!("df = {}", name));
+            }
+        }
+    } else {
+        let name = req.get("var").and_then(|v| v.as_str()).unwrap_or("df");
+        lines.push(format!("df = {}", name));
+    }
+    // filters
+    if let Some(filters) = req.get("filters").and_then(|v| v.as_array()) {
+        for f in filters {
+            let col = f.get("col").and_then(|v| v.as_str()).unwrap_or("");
+            let op = f.get("op").and_then(|v| v.as_str()).unwrap_or("==");
+            let val = f.get("value").cloned().unwrap_or(json!(null));
+            let vstr = match &val {
+                serde_json::Value::String(s) => js(s),
+                other => other.to_string(),
+            };
+            let expr = match op {
+                "contains" => format!("df = df[df[{}].astype(str).str.contains({}, case=False, na=False)]", js(col), vstr),
+                "isnull" => format!("df = df[df[{}].isna()]", js(col)),
+                "notnull" => format!("df = df[df[{}].notna()]", js(col)),
+                "in" => format!("df = df[df[{}].isin({})]", js(col), vstr),
+                _ => format!("df = df[df[{}] {} {}]", js(col), op, vstr),
+            };
+            lines.push(expr);
+        }
+    }
+    // sort
+    if let Some(sort) = req.get("sort").and_then(|v| v.as_array()) {
+        if !sort.is_empty() {
+            let by: Vec<String> = sort.iter().filter_map(|s| s.get("col").and_then(|v| v.as_str()).map(|c| js(c))).collect();
+            let asc: Vec<String> = sort.iter().map(|s| if s.get("dir").and_then(|v| v.as_str()) == Some("desc") { "False".to_string() } else { "True".to_string() }).collect();
+            lines.push(format!("df = df.sort_values(by=[{}], ascending=[{}])", by.join(", "), asc.join(", ")));
+        }
+    }
+    lines.push("df".to_string());
+    lines.join("\n")
 }
 
 // ── Real SQL execution via the kernel (OSS connectors, no bundled drivers) ────

@@ -5,6 +5,8 @@ import {
   FilePlus, FolderPlus, Upload, Eye, EyeOff, Pencil, Trash2, Scissors, Copy, ClipboardPaste,
 } from 'lucide-react'
 import { useNotebookStore } from '../hooks/useNotebook'
+import { useExplorerRequest, isDataFile } from '../hooks/useExplorerRequest'
+import { useAIContext } from '../hooks/useAIContext'
 
 interface Entry { name: string; path: string; is_dir: boolean }
 interface Listing { path: string; parent: string | null; entries: Entry[] }
@@ -32,6 +34,11 @@ export default function ServerExplorer({ initialPath }: { initialPath?: string }
     try {
       const res = await axios.get<Listing>('/api/fs/list', { params: { path, show_hidden: hidden } })
       setListing(res.data); setSelected(new Set())
+      // publish workspace context for the AI panel
+      useAIContext.getState().setWorkspace(
+        res.data.path.split('/').filter(Boolean).pop() || res.data.path,
+        (res.data.entries ?? []).map((e) => (e.is_dir ? e.name + '/' : e.name)),
+      )
       // git status decorations (best-effort)
       try {
         const g = await axios.get('/api/git/status', { params: { path: res.data.path } })
@@ -91,7 +98,12 @@ export default function ServerExplorer({ initialPath }: { initialPath?: string }
       setSelected(new Set([e.path])); anchor.current = idx
     }
   }
-  const open = (e: Entry) => { if (e.is_dir) load(e.path); else if (e.name.endsWith('.ipynb')) openNotebook(e) }
+  const open = (e: Entry) => {
+    if (e.is_dir) load(e.path)
+    else if (e.name.endsWith('.ipynb')) openNotebook(e)
+    // Parquet/CSV/JSON/Arrow open straight in the Data Explorer (read via DuckDB).
+    else if (isDataFile(e.name)) useExplorerRequest.getState().open({ source: { kind: 'file', path: e.path } }, e.name)
+  }
 
   // ── file ops ──
   const newFile = async () => { const name = window.prompt('New file name'); if (name && cwd) { await axios.post('/api/fs/new-file', { path: cwd, name }).catch(er => setError(er?.response?.data?.error)); reload() } }

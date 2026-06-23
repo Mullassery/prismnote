@@ -14,6 +14,8 @@ interface MenuBarProps {
   onOpenJobs?: (create?: boolean) => void
   onOpenGit?: (focus?: 'commit' | 'clone') => void
   onOpenCommandPalette?: () => void
+  onOpenDataExplorer?: () => void
+  onOpenData?: () => void
 }
 
 interface MenuItem {
@@ -25,7 +27,7 @@ interface MenuItem {
   disabled?: boolean
 }
 
-export default function MenuBar({ theme, onToggleTheme, panels, onTogglePanel, onOpenSearch, onOpenJobs, onOpenGit, onOpenCommandPalette }: MenuBarProps) {
+export default function MenuBar({ theme, onToggleTheme, panels, onTogglePanel, onOpenSearch, onOpenJobs, onOpenGit, onOpenCommandPalette, onOpenDataExplorer, onOpenData }: MenuBarProps) {
   const [open, setOpen] = useState<string | null>(null)
   const [findOpen, setFindOpen] = useState(false)
   const barRef = useRef<HTMLDivElement>(null)
@@ -143,6 +145,7 @@ export default function MenuBar({ theme, onToggleTheme, panels, onTogglePanel, o
   const menus: Record<string, MenuItem[]> = {
     File: [
       { label: 'New Notebook', shortcut: '⌘N', action: newNotebook },
+      { label: 'Open Data Explorer…', shortcut: '⌘E', action: () => onOpenDataExplorer?.(), separatorAfter: true },
       { label: 'Open File…', shortcut: '⌘O', action: openFile },
       { label: 'Open Folder…', action: openFolder, separatorAfter: true },
       { label: 'Save', shortcut: '⌘S', action: () => saveNotebook?.(), disabled: !currentNotebook, separatorAfter: true },
@@ -163,7 +166,9 @@ export default function MenuBar({ theme, onToggleTheme, panels, onTogglePanel, o
       { label: 'Command Palette…', shortcut: '⇧⌘P', action: () => onOpenCommandPalette?.() },
     ],
     View: [
-      { label: 'File Explorer', checked: panels.files, action: () => onTogglePanel('files') },
+      { label: 'Data Explorer', shortcut: '⌘E', action: () => onOpenDataExplorer?.() },
+      { label: 'Data & SQL', action: () => onOpenData?.(), separatorAfter: true },
+      { label: 'Files', checked: panels.files, action: () => onTogglePanel('files') },
       { label: 'Terminal & Console', checked: panels.terminal, action: () => onTogglePanel('terminal') },
       { label: 'AI Assistant', checked: panels.ai, action: () => onTogglePanel('ai') },
       { label: 'Search…', shortcut: '⌘K', action: () => onOpenSearch?.(), separatorAfter: true },
@@ -195,7 +200,7 @@ export default function MenuBar({ theme, onToggleTheme, panels, onTogglePanel, o
     Help: [
       { label: 'About PrismNote', action: () => window.alert('PrismNote — a modern, open-source data-science notebook.\nRust engine · React UI.') },
       { label: 'Documentation', action: () => window.open('https://github.com/Mullassery/prismnote#readme', '_blank') },
-      { label: 'Keyboard Shortcuts', action: () => window.alert('⌘N New · ⌘O Open · ⌘S Save · ⌘K Search · ⇧⌘P Command Palette · ⌘⇧⏎ Run All · ⇧⏎ Run Cell · ⌘K (in cell) AI edit') },
+      { label: 'Keyboard Shortcuts', action: () => window.alert('⌘E Data Explorer · ⌘N New · ⌘O Open · ⌘S Save · ⌘K Search · ⇧⌘P Command Palette · ⌘⇧⏎ Run All · ⇧⏎ Run Cell · ⌘K (in cell) AI edit') },
     ],
   }
 

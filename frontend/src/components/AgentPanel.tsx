@@ -19,8 +19,8 @@ import {
 } from 'lucide-react'
 import { useNotebookStore } from '../hooks/useNotebook'
 import { useFontSize } from '../hooks/useFontSize'
-
-const OLLAMA = 'http://localhost:11434'
+import { ollamaEndpoint } from '../api/ai'
+import { buildEnvironmentContext } from '../hooks/useAIContext'
 
 type Mode = 'plan' | 'act'
 type Role = 'user' | 'assistant'
@@ -100,7 +100,7 @@ export default function AgentPanel({ onClose }: { onClose: () => void }) {
   // discover local Ollama models (retryable)
   const checkOllama = () => {
     setConnected(null)
-    fetch(`${OLLAMA}/api/tags`)
+    fetch(`${ollamaEndpoint()}/api/tags`)
       .then((r) => r.json())
       .then((d) => {
         const names = (d.models ?? []).map((m: any) => m.name)
@@ -161,18 +161,21 @@ export default function AgentPanel({ onClose }: { onClose: () => void }) {
     setStreaming(true)
 
     const sys = mode === 'plan' ? planSystem : actSystem
+    // Give the agent product context: workspace files, the open Data Explorer
+    // dataset, and the session — not just the notebook cells.
+    const env = buildEnvironmentContext()
     const payload = {
       model,
       stream: true,
       messages: [
-        { role: 'system', content: `${sys}\n\nCurrent notebook:\n${notebookContext()}` },
+        { role: 'system', content: `${sys}\n\nEnvironment:\n${env}\n\nCurrent notebook:\n${notebookContext()}` },
         ...history.map((m) => ({ role: m.role, content: m.text })),
       ],
     }
 
     setMessages((ms) => [...ms, { role: 'assistant', text: '' }])
     try {
-      const res = await fetch(`${OLLAMA}/api/chat`, {
+      const res = await fetch(`${ollamaEndpoint()}/api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -212,7 +215,7 @@ export default function AgentPanel({ onClose }: { onClose: () => void }) {
         const copy = [...ms]
         copy[copy.length - 1] = {
           role: 'assistant',
-          text: `⚠️ Couldn't reach Ollama at ${OLLAMA}. Make sure it's running (\`ollama serve\`) and that browser requests are allowed:\n\nOLLAMA_ORIGINS=http://localhost:5173 ollama serve`,
+          text: `⚠️ Couldn't reach Ollama at ${ollamaEndpoint()}. Make sure it's running (\`ollama serve\`) and that browser requests are allowed:\n\nOLLAMA_ORIGINS=http://localhost:5173 ollama serve`,
         }
         return copy
       })
