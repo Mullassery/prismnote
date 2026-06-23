@@ -39,7 +39,7 @@ and **AI-native** (local via Ollama, or Claude/OpenAI).
 
 ## Quickstart
 
-Install with **pip** _or_ **uv** _or_ **curl** — pick one:
+Install with **pip** _or_ **uv** _or_ **brew** _or_ **curl** — pick one:
 
 ```bash
 # ── pip ──
@@ -57,12 +57,24 @@ uvx prismnote
 — OR —
 
 ```bash
+# ── Homebrew (macOS / Linux) ──
+brew tap Mullassery/prismnote
+brew install prismnote && prismnote
+```
+
+— OR —
+
+```bash
 # ── curl ──  no Python required (installs the binary to /usr/local/bin)
 curl -fsSL https://raw.githubusercontent.com/Mullassery/prismnote/main/install.sh | bash
 prismnote
 ```
 
 Then open **http://localhost:8000** and click **Open Data Explorer** (`⌘E`) or **New Notebook**.
+
+> **No Docker required.** PrismNote runs as a single native binary — Docker is **not**
+> needed to install or run it. (Docker is only used by the optional *Deploy to Cloud*
+> artifacts, and by maintainers who cross-build release binaries.)
 
 > The pip/uv package is a thin launcher: on first run it downloads the prebuilt server
 > binary for your platform from the matching **GitHub Release** (`vX.Y.Z`). If a release
