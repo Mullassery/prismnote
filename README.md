@@ -51,6 +51,17 @@ Open http://localhost:5173.
 ### From PyPI
 ```bash
 pip install prismnote
+```
+
+OR
+
+```bash
+uv add prismnote
+```
+
+Then run:
+
+```bash
 prismnote
 ```
 The PyPI package is a thin launcher: on first run it downloads the prebuilt server
