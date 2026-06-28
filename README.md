@@ -5,7 +5,12 @@
 **A fast, modern, open-source data-science notebook.**
 Rust engine · React UI · local-first · AI-native.
 
-**License:** MIT · **Status:** Beta (v0.4.3) · **PyPI:** [`prismnote`](https://pypi.org/project/prismnote/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
+[![PyPI](https://img.shields.io/pypi/v/prismnote)](https://pypi.org/project/prismnote/)
+[![Python](https://img.shields.io/badge/python-3.8+-blue)](https://pypi.org/project/prismnote/)
+[![GitHub Issues](https://img.shields.io/github/issues/Mullassery/prismnote)](https://github.com/Mullassery/prismnote/issues)
+
+**Status:** Beta (v0.4.3)
 
 </div>
 
@@ -222,6 +227,20 @@ Docs: [CONNECTORS.md](CONNECTORS.md) (data connectors & OSS licensing) ·
 - Real-time collaboration (live cursors / co-editing).
 - Notebook parameters and multi-notebook job composition.
 - Reactive (dependency-aware) cell execution.
+
+---
+
+## Community
+
+- **GitHub Issues** — [Report bugs and request features](https://github.com/Mullassery/prismnote/issues)
+- **GitHub Discussions** — [Questions and best practices](https://github.com/Mullassery/prismnote/discussions)
+- **Code of Conduct** — [Be respectful and constructive](./CODE_OF_CONDUCT.md)
+
+## Contributing
+
+Contributions welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and guidelines.
+
+For security issues, see [SECURITY.md](SECURITY.md).
 
 ---
 
